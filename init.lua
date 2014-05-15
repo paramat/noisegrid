@@ -1,13 +1,14 @@
--- noisegrid 0.1.0 by paramat
+-- noisegrid 0.2.0 by paramat
 -- For latest stable Minetest and back to 0.4.8
 -- Depends default
 -- License: code WTFPL
 
 -- Parameters
 
-local TERSCA = 40
+local YVAL = 3
+local TERSCA = 128
 local TROAD = 0.1
-local TVAL = 0.12
+local TVAL = 0.11
 
 -- 2D noise for base terrain
 
@@ -23,6 +24,19 @@ local np_base = {
 -- Stuff
 
 noisegrid = {}
+
+-- Nodes
+
+minetest.register_node("noisegrid:grass", {
+	description = "Grass",
+	tiles = {"default_grass.png", "default_dirt.png", "default_grass.png"},
+	is_ground_content = false,
+	groups = {crumbly=3,soil=1},
+	drop = "default:dirt",
+	sounds = default.node_sound_dirt_defaults({
+		footstep = {name="default_grass_footstep", gain=0.25},
+	}),
+})
 
 -- Set mapgen parameters
 
@@ -48,7 +62,7 @@ end)
 -- On generated function
 
 minetest.register_on_generated(function(minp, maxp, seed)
-	if minp.y ~= -32 then
+	if minp.y < -192 or minp.y > 128 then
 		return
 	end
 
@@ -66,8 +80,10 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local area = VoxelArea:new{MinEdge=emin, MaxEdge=emax}
 	local data = vm:get_data()
 	
-	local c_sand = minetest.get_content_id("default:sand")
-	local c_obsidian = minetest.get_content_id("default:obsidian")
+	local c_grass = minetest.get_content_id("noisegrid:grass")
+	local c_water = minetest.get_content_id("default:water_source")
+	local c_wblack = minetest.get_content_id("wool:black")
+	local c_wwhite = minetest.get_content_id("wool:white")
 	
 	local sidelen = x1 - x0 + 1
 	local chulens = {x=sidelen, y=sidelen, z=sidelen}
@@ -80,19 +96,19 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local eroad = false
 	local sroad = false
 	local wroad = false
-	if math.abs(nvals_base[6360]) < TROAD then
+	if math.abs(nvals_base[6359]) < TROAD then
 		nroad = true
 	end
-	if math.abs(nvals_base[3201]) < TROAD then
+	if math.abs(nvals_base[3121]) < TROAD then
 		wroad = true
 	end
-	if math.abs(nvals_base[3240]) < TROAD then
+	if math.abs(nvals_base[3160]) < TROAD then
 		cross = true
 	end
-	if math.abs(nvals_base[3280]) < TROAD then
+	if math.abs(nvals_base[3200]) < TROAD then
 		eroad = true
 	end
-	if math.abs(nvals_base[40]) < TROAD then
+	if math.abs(nvals_base[39]) < TROAD then
 		sroad = true
 	end
 	
@@ -104,34 +120,55 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				local xr = x - x0
 				local zr = z - z0
 				local ysurf
-				local n_absbase = math.abs(nvals_base[nixz])
-				if n_absbase <= TVAL then
-					ysurf = 1
+				local n_base = nvals_base[nixz]
+				local n_absbase = math.abs(n_base)
+				if n_base > TVAL then
+					ysurf = YVAL + math.floor((n_base - TVAL) * TERSCA)
+				elseif n_base < -TVAL then
+					ysurf = YVAL - math.floor((-TVAL - n_base) * TERSCA)
 				else
-					ysurf = 1 + math.floor((n_absbase - TVAL) * TERSCA)
+					ysurf = YVAL
 				end
 				
-				if y == 1 then
-					if xr >= 36 and xr <= 43 and zr >= 36 and zr <= 43 -- centre
+				if y == YVAL and n_absbase <= TVAL then
+					if xr >= 36 and xr <= 42 and zr >= 36 and zr <= 42 -- centre
 					and (nroad or eroad or sroad or wroad) and cross then
-						data[vi] = c_obsidian
-					elseif xr >= 36 and xr <= 43 and zr >= 44 -- north
+						data[vi] = c_wblack
+					elseif xr >= 36 and xr <= 42 and zr >= 43 -- north
 					and nroad and cross then
-						data[vi] = c_obsidian
-					elseif xr >= 44 and zr >= 36 and zr <= 43 -- east
+						if xr == 39 then
+							data[vi] = c_wwhite
+						else
+							data[vi] = c_wblack
+						end
+					elseif xr >= 43 and zr >= 36 and zr <= 42 -- east
 					and eroad and cross then
-						data[vi] = c_obsidian
-					elseif xr >= 36 and xr <= 43 and zr <= 35 -- south
+						if zr == 39 then
+							data[vi] = c_wwhite
+						else
+							data[vi] = c_wblack
+						end
+					elseif xr >= 36 and xr <= 42 and zr <= 35 -- south
 					and sroad and cross then
-						data[vi] = c_obsidian
-					elseif xr <= 35 and zr >= 36 and zr <= 43 -- west
+						if xr == 39 then
+							data[vi] = c_wwhite
+						else
+							data[vi] = c_wblack
+						end
+					elseif xr <= 35 and zr >= 36 and zr <= 42 -- west
 					and wroad and cross then
-						data[vi] = c_obsidian
+						if zr == 39 then
+							data[vi] = c_wwhite
+						else
+							data[vi] = c_wblack
+						end
 					else
-						data[vi] = c_sand
+						data[vi] = c_grass
 					end
 				elseif y <= ysurf then
-					data[vi] = c_sand
+					data[vi] = c_grass
+				elseif y <= 1 then
+					data[vi] = c_water
 				end
 				nixz = nixz + 1
 				vi = vi + 1
