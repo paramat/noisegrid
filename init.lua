@@ -1,11 +1,14 @@
--- noisegrid 0.2.0 by paramat
+-- noisegrid 0.2.1 by paramat
 -- For latest stable Minetest and back to 0.4.8
 -- Depends default
 -- License: code WTFPL
 
+-- Add dirt, sand, stone
+
 -- Parameters
 
-local YVAL = 3
+local YVAL = 5
+local YSAND = 3
 local TERSCA = 128
 local TROAD = 0.1
 local TVAL = 0.11
@@ -17,7 +20,7 @@ local np_base = {
 	scale = 1,
 	spread = {x=2048, y=2048, z=2048},
 	seed = -9111,
-	octaves = 5,
+	octaves = 6,
 	persist = 0.6
 }
 
@@ -36,6 +39,23 @@ minetest.register_node("noisegrid:grass", {
 	sounds = default.node_sound_dirt_defaults({
 		footstep = {name="default_grass_footstep", gain=0.25},
 	}),
+})
+
+minetest.register_node("noisegrid:dirt", {
+	description = "Dirt",
+	tiles = {"default_dirt.png"},
+	is_ground_content = false,
+	groups = {crumbly=3,soil=1},
+	drop = "default:dirt",
+	sounds = default.node_sound_dirt_defaults(),
+})
+
+minetest.register_node("noisegrid:stone", {
+	description = "Stone",
+	tiles = {"default_stone.png"},
+	groups = {cracky=3},
+	drop = "default:cobble",
+	sounds = default.node_sound_stone_defaults(),
 })
 
 -- Set mapgen parameters
@@ -81,7 +101,10 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local data = vm:get_data()
 	
 	local c_grass = minetest.get_content_id("noisegrid:grass")
+	local c_dirt = minetest.get_content_id("noisegrid:dirt")
+	local c_stone = minetest.get_content_id("noisegrid:stone")
 	local c_water = minetest.get_content_id("default:water_source")
+	local c_sand = minetest.get_content_id("default:sand")
 	local c_wblack = minetest.get_content_id("wool:black")
 	local c_wwhite = minetest.get_content_id("wool:white")
 	
@@ -165,8 +188,14 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					else
 						data[vi] = c_grass
 					end
-				elseif y <= ysurf then
+				elseif y < ysurf - 3 then
+					data[vi] = c_stone
+				elseif y <= ysurf and y <= YSAND then
+					data[vi] = c_sand
+				elseif y == ysurf then
 					data[vi] = c_grass
+				elseif y < ysurf then
+					data[vi] = c_dirt
 				elseif y <= 1 then
 					data[vi] = c_water
 				end
