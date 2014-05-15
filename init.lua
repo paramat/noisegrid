@@ -1,0 +1,150 @@
+-- noisegrid 0.1.0 by paramat
+-- For latest stable Minetest and back to 0.4.8
+-- Depends default
+-- License: code WTFPL
+
+-- Parameters
+
+local TERSCA = 40
+local TROAD = 0.1
+local TVAL = 0.12
+
+-- 2D noise for base terrain
+
+local np_base = {
+	offset = 0,
+	scale = 1,
+	spread = {x=2048, y=2048, z=2048},
+	seed = -9111,
+	octaves = 5,
+	persist = 0.6
+}
+
+-- Stuff
+
+noisegrid = {}
+
+-- Set mapgen parameters
+
+minetest.register_on_mapgen_init(function(mgparams)
+	minetest.set_mapgen_params({mgname="singlenode"})
+end)
+
+-- Spawn player
+
+function spawnplayer(player)
+	player:setpos({x=0, y=2, z=0})
+end
+
+minetest.register_on_newplayer(function(player)
+	spawnplayer(player)
+end)
+
+minetest.register_on_respawnplayer(function(player)
+	spawnplayer(player)
+	return true
+end)
+
+-- On generated function
+
+minetest.register_on_generated(function(minp, maxp, seed)
+	if minp.y ~= -32 then
+		return
+	end
+
+	local t1 = os.clock()
+	local x1 = maxp.x
+	local y1 = maxp.y
+	local z1 = maxp.z
+	local x0 = minp.x
+	local y0 = minp.y
+	local z0 = minp.z
+	
+	print ("[noisegrid] chunk minp ("..x0.." "..y0.." "..z0..")")
+	
+	local vm, emin, emax = minetest.get_mapgen_object("voxelmanip")
+	local area = VoxelArea:new{MinEdge=emin, MaxEdge=emax}
+	local data = vm:get_data()
+	
+	local c_sand = minetest.get_content_id("default:sand")
+	local c_obsidian = minetest.get_content_id("default:obsidian")
+	
+	local sidelen = x1 - x0 + 1
+	local chulens = {x=sidelen, y=sidelen, z=sidelen}
+	local minposxz = {x=x0, y=z0}
+	
+	local nvals_base = minetest.get_perlin_map(np_base, chulens):get2dMap_flat(minposxz)
+	
+	local cross = false
+	local nroad = false
+	local eroad = false
+	local sroad = false
+	local wroad = false
+	if math.abs(nvals_base[6360]) < TROAD then
+		nroad = true
+	end
+	if math.abs(nvals_base[3201]) < TROAD then
+		wroad = true
+	end
+	if math.abs(nvals_base[3240]) < TROAD then
+		cross = true
+	end
+	if math.abs(nvals_base[3280]) < TROAD then
+		eroad = true
+	end
+	if math.abs(nvals_base[40]) < TROAD then
+		sroad = true
+	end
+	
+	local nixz = 1
+	for z = z0, z1 do
+		for y = y0, y1 do
+			local vi = area:index(x0, y, z)
+			for x = x0, x1 do
+				local xr = x - x0
+				local zr = z - z0
+				local ysurf
+				local n_absbase = math.abs(nvals_base[nixz])
+				if n_absbase <= TVAL then
+					ysurf = 1
+				else
+					ysurf = 1 + math.floor((n_absbase - TVAL) * TERSCA)
+				end
+				
+				if y == 1 then
+					if xr >= 36 and xr <= 43 and zr >= 36 and zr <= 43 -- centre
+					and (nroad or eroad or sroad or wroad) and cross then
+						data[vi] = c_obsidian
+					elseif xr >= 36 and xr <= 43 and zr >= 44 -- north
+					and nroad and cross then
+						data[vi] = c_obsidian
+					elseif xr >= 44 and zr >= 36 and zr <= 43 -- east
+					and eroad and cross then
+						data[vi] = c_obsidian
+					elseif xr >= 36 and xr <= 43 and zr <= 35 -- south
+					and sroad and cross then
+						data[vi] = c_obsidian
+					elseif xr <= 35 and zr >= 36 and zr <= 43 -- west
+					and wroad and cross then
+						data[vi] = c_obsidian
+					else
+						data[vi] = c_sand
+					end
+				elseif y <= ysurf then
+					data[vi] = c_sand
+				end
+				nixz = nixz + 1
+				vi = vi + 1
+			end
+			nixz = nixz - 80
+		end
+		nixz = nixz + 80
+	end
+	
+	vm:set_data(data)
+	vm:set_lighting({day=0, night=0})
+	vm:calc_lighting()
+	vm:write_to_map(data)
+	local chugent = math.ceil((os.clock() - t1) * 1000)
+	print ("[noisegrid] "..chugent.." ms")
+end)
