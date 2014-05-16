@@ -1,9 +1,9 @@
--- noisegrid 0.2.2 by paramat
+-- noisegrid 0.2.3 by paramat
 -- For latest stable Minetest and back to 0.4.8
 -- Depends default
 -- License: code WTFPL
 
--- Add black and white road nodes, crossings, paths. 256n mountains.
+-- Raised path slabs, wider paths.
 
 -- Parameters
 
@@ -11,7 +11,7 @@ local YVAL = 5
 local YSAND = 3
 local TERSCA = 192
 local TROAD = 0.1
-local TVAL = 0.11
+local TVAL = 0.12
 
 -- 2D noise for base terrain
 
@@ -74,7 +74,24 @@ minetest.register_node("noisegrid:roadwhite", {
 
 minetest.register_node("noisegrid:path", {
 	description = "Path",
-	tiles = {"noisegrid_path.png"},
+	tiles = {"noisegrid_pathtop.png", "noisegrid_pathtop.png", "noisegrid_pathside.png"},
+	drawtype = "nodebox",
+	paramtype = "light",
+	is_ground_content = false,
+	sunlight_propagates = true,
+	buildable_to = true,
+	node_box = {
+		type = "fixed",
+		fixed = {
+			{-0.5, -0.5, -0.5, 0.5, 0, 0.5}
+		},
+	},
+	selection_box = {
+		type = "fixed",
+		fixed = {
+			{-0.5, -0.5, -0.5, 0.5, 0, 0.5}
+		},
+	},
 	groups = {cracky=2},
 	sounds = default.node_sound_stone_defaults(),
 })
@@ -162,6 +179,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	for z = z0, z1 do
 		for y = y0, y1 do
 			local vi = area:index(x0, y, z)
+			local via = area:index(x0, y+1, z)
 			for x = x0, x1 do
 				local xr = x - x0
 				local zr = z - z0
@@ -180,49 +198,54 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					if xr >= 36 and xr <= 42 and zr >= 36 and zr <= 42 -- centre
 					and (nroad or eroad or sroad or wroad) and cross then
 						data[vi] = c_roadblack
-					elseif xr >= 34 and xr <= 44 and zr >= 43 -- north
+					elseif xr >= 33 and xr <= 45 and zr >= 43 -- north
 					and nroad and cross then
 						if xr == 39
-						or (zr <= 44 and (xr == 37 or xr == 41)) then
+						or (zr <= 45 and (xr == 37 or xr == 41)) then
 							data[vi] = c_roadwhite
 						elseif xr >= 36 and xr <= 42 then
 							data[vi] = c_roadblack
 						else
-							data[vi] = c_path
+							data[vi] = c_dirt
+							data[via] = c_path
 						end
-					elseif xr >= 43 and zr >= 34 and zr <= 44 -- east
+					elseif xr >= 43 and zr >= 33 and zr <= 45 -- east
 					and eroad and cross then
 						if zr == 39
-						or (xr <= 44 and (zr == 37 or zr == 41)) then
+						or (xr <= 45 and (zr == 37 or zr == 41)) then
 							data[vi] = c_roadwhite
 						elseif zr >= 36 and zr <= 42 then
 							data[vi] = c_roadblack
 						else
-							data[vi] = c_path
+							data[vi] = c_dirt
+							data[via] = c_path
 						end
-					elseif xr >= 34 and xr <= 44 and zr <= 35 -- south
+					elseif xr >= 33 and xr <= 45 and zr <= 35 -- south
 					and sroad and cross then
 						if xr == 39
-						or (zr >= 34 and (xr == 37 or xr == 41)) then
+						or (zr >= 33 and (xr == 37 or xr == 41)) then
 							data[vi] = c_roadwhite
 						elseif xr >= 36 and xr <= 42 then
 							data[vi] = c_roadblack
 						else
-							data[vi] = c_path
+							data[vi] = c_dirt
+							data[via] = c_path
 						end
-					elseif xr <= 35 and zr >= 34 and zr <= 44 -- west
+					elseif xr <= 35 and zr >= 33 and zr <= 45 -- west
 					and wroad and cross then
 						if zr == 39
-						or (xr >= 34 and (zr == 37 or zr == 41)) then
+						or (xr >= 33 and (zr == 37 or zr == 41)) then
 							data[vi] = c_roadwhite
 						elseif zr >= 36 and zr <= 42 then
 							data[vi] = c_roadblack
 						else
-							data[vi] = c_path
+							data[vi] = c_dirt
+							data[via] = c_path
 						end
-					elseif xr >= 34 and xr <= 44 and zr >= 34 and zr <= 44
+					elseif xr >= 33 and xr <= 45 and zr >= 33 and zr <= 45
 					and cross then
-						data[vi] = c_path
+						data[vi] = c_dirt
+						data[via] = c_path
 					else
 						data[vi] = c_grass
 					end
@@ -239,6 +262,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				end
 				nixz = nixz + 1
 				vi = vi + 1
+				via = via + 1
 			end
 			nixz = nixz - 80
 		end
