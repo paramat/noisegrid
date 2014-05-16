@@ -1,15 +1,15 @@
--- noisegrid 0.2.1 by paramat
+-- noisegrid 0.2.2 by paramat
 -- For latest stable Minetest and back to 0.4.8
 -- Depends default
 -- License: code WTFPL
 
--- Add dirt, sand, stone
+-- Add black and white road nodes, crossings, paths. 256n mountains.
 
 -- Parameters
 
 local YVAL = 5
 local YSAND = 3
-local TERSCA = 128
+local TERSCA = 192
 local TROAD = 0.1
 local TVAL = 0.11
 
@@ -58,6 +58,27 @@ minetest.register_node("noisegrid:stone", {
 	sounds = default.node_sound_stone_defaults(),
 })
 
+minetest.register_node("noisegrid:roadblack", {
+	description = "Road Black",
+	tiles = {"noisegrid_roadblack.png"},
+	groups = {cracky=2},
+	sounds = default.node_sound_stone_defaults(),
+})
+
+minetest.register_node("noisegrid:roadwhite", {
+	description = "Road White",
+	tiles = {"noisegrid_roadwhite.png"},
+	groups = {cracky=2},
+	sounds = default.node_sound_stone_defaults(),
+})
+
+minetest.register_node("noisegrid:path", {
+	description = "Path",
+	tiles = {"noisegrid_path.png"},
+	groups = {cracky=2},
+	sounds = default.node_sound_stone_defaults(),
+})
+
 -- Set mapgen parameters
 
 minetest.register_on_mapgen_init(function(mgparams)
@@ -82,7 +103,7 @@ end)
 -- On generated function
 
 minetest.register_on_generated(function(minp, maxp, seed)
-	if minp.y < -192 or minp.y > 128 then
+	if minp.y < -272 or minp.y > 208 then
 		return
 	end
 
@@ -105,11 +126,13 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local c_stone = minetest.get_content_id("noisegrid:stone")
 	local c_water = minetest.get_content_id("default:water_source")
 	local c_sand = minetest.get_content_id("default:sand")
-	local c_wblack = minetest.get_content_id("wool:black")
-	local c_wwhite = minetest.get_content_id("wool:white")
+	local c_roadblack = minetest.get_content_id("noisegrid:roadblack")
+	local c_roadwhite = minetest.get_content_id("noisegrid:roadwhite")
+	local c_path = minetest.get_content_id("noisegrid:path")
 	
 	local sidelen = x1 - x0 + 1
 	local chulens = {x=sidelen, y=sidelen, z=sidelen}
+	local minposxyz = {x=x0, y=y0, z=z0}
 	local minposxz = {x=x0, y=z0}
 	
 	local nvals_base = minetest.get_perlin_map(np_base, chulens):get2dMap_flat(minposxz)
@@ -156,35 +179,50 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				if y == YVAL and n_absbase <= TVAL then
 					if xr >= 36 and xr <= 42 and zr >= 36 and zr <= 42 -- centre
 					and (nroad or eroad or sroad or wroad) and cross then
-						data[vi] = c_wblack
-					elseif xr >= 36 and xr <= 42 and zr >= 43 -- north
+						data[vi] = c_roadblack
+					elseif xr >= 34 and xr <= 44 and zr >= 43 -- north
 					and nroad and cross then
-						if xr == 39 then
-							data[vi] = c_wwhite
+						if xr == 39
+						or (zr <= 44 and (xr == 37 or xr == 41)) then
+							data[vi] = c_roadwhite
+						elseif xr >= 36 and xr <= 42 then
+							data[vi] = c_roadblack
 						else
-							data[vi] = c_wblack
+							data[vi] = c_path
 						end
-					elseif xr >= 43 and zr >= 36 and zr <= 42 -- east
+					elseif xr >= 43 and zr >= 34 and zr <= 44 -- east
 					and eroad and cross then
-						if zr == 39 then
-							data[vi] = c_wwhite
+						if zr == 39
+						or (xr <= 44 and (zr == 37 or zr == 41)) then
+							data[vi] = c_roadwhite
+						elseif zr >= 36 and zr <= 42 then
+							data[vi] = c_roadblack
 						else
-							data[vi] = c_wblack
+							data[vi] = c_path
 						end
-					elseif xr >= 36 and xr <= 42 and zr <= 35 -- south
+					elseif xr >= 34 and xr <= 44 and zr <= 35 -- south
 					and sroad and cross then
-						if xr == 39 then
-							data[vi] = c_wwhite
+						if xr == 39
+						or (zr >= 34 and (xr == 37 or xr == 41)) then
+							data[vi] = c_roadwhite
+						elseif xr >= 36 and xr <= 42 then
+							data[vi] = c_roadblack
 						else
-							data[vi] = c_wblack
+							data[vi] = c_path
 						end
-					elseif xr <= 35 and zr >= 36 and zr <= 42 -- west
+					elseif xr <= 35 and zr >= 34 and zr <= 44 -- west
 					and wroad and cross then
-						if zr == 39 then
-							data[vi] = c_wwhite
+						if zr == 39
+						or (xr >= 34 and (zr == 37 or zr == 41)) then
+							data[vi] = c_roadwhite
+						elseif zr >= 36 and zr <= 42 then
+							data[vi] = c_roadblack
 						else
-							data[vi] = c_wblack
+							data[vi] = c_path
 						end
+					elseif xr >= 34 and xr <= 44 and zr >= 34 and zr <= 44
+					and cross then
+						data[vi] = c_path
 					else
 						data[vi] = c_grass
 					end
