@@ -7,11 +7,17 @@
 
 -- Parameters
 
-local YVAL = 5
+local YGRID = 5
 local YSAND = 3
 local TERSCA = 192
 local TROAD = 0.1
-local TVAL = 0.12
+local TGRID = 0.12
+local TFIS = 0.02 -- Fissure threshold, controls width
+local ORECHA = 1 / 5 ^ 3 -- Ore chance per stone node
+local APPCHA = 1 / 11 ^ 2 -- Appletree
+local CACCHA = 1 / 61 ^ 2 -- Cactus
+local FLOCHA = 1 / 23 ^ 2 -- Random flower
+local GRACHA = 1 / 6 ^ 2 -- Grass
 
 -- 2D noise for base terrain
 
@@ -24,77 +30,23 @@ local np_base = {
 	persist = 0.6
 }
 
+-- 3D noise for fissures
+
+local np_fissure = {
+	offset = 0,
+	scale = 1,
+	spread = {x=192, y=192, z=192},
+	seed = 2001,
+	octaves = 4,
+	persist = 0.5
+}
+
 -- Stuff
 
 noisegrid = {}
 
--- Nodes
-
-minetest.register_node("noisegrid:grass", {
-	description = "Grass",
-	tiles = {"default_grass.png", "default_dirt.png", "default_grass.png"},
-	is_ground_content = false,
-	groups = {crumbly=3,soil=1},
-	drop = "default:dirt",
-	sounds = default.node_sound_dirt_defaults({
-		footstep = {name="default_grass_footstep", gain=0.25},
-	}),
-})
-
-minetest.register_node("noisegrid:dirt", {
-	description = "Dirt",
-	tiles = {"default_dirt.png"},
-	is_ground_content = false,
-	groups = {crumbly=3,soil=1},
-	drop = "default:dirt",
-	sounds = default.node_sound_dirt_defaults(),
-})
-
-minetest.register_node("noisegrid:stone", {
-	description = "Stone",
-	tiles = {"default_stone.png"},
-	groups = {cracky=3},
-	drop = "default:cobble",
-	sounds = default.node_sound_stone_defaults(),
-})
-
-minetest.register_node("noisegrid:roadblack", {
-	description = "Road Black",
-	tiles = {"noisegrid_roadblack.png"},
-	groups = {cracky=2},
-	sounds = default.node_sound_stone_defaults(),
-})
-
-minetest.register_node("noisegrid:roadwhite", {
-	description = "Road White",
-	tiles = {"noisegrid_roadwhite.png"},
-	groups = {cracky=2},
-	sounds = default.node_sound_stone_defaults(),
-})
-
-minetest.register_node("noisegrid:path", {
-	description = "Path",
-	tiles = {"noisegrid_pathtop.png", "noisegrid_pathtop.png", "noisegrid_pathside.png"},
-	drawtype = "nodebox",
-	paramtype = "light",
-	is_ground_content = false,
-	sunlight_propagates = true,
-	buildable_to = true,
-	node_box = {
-		type = "fixed",
-		fixed = {
-			{-0.5, -0.5, -0.5, 0.5, 0, 0.5}
-		},
-	},
-	selection_box = {
-		type = "fixed",
-		fixed = {
-			{-0.5, -0.5, -0.5, 0.5, 0, 0.5}
-		},
-	},
-	groups = {cracky=2},
-	sounds = default.node_sound_stone_defaults(),
-})
+dofile(minetest.get_modpath("noisegrid").."/functions.lua")
+dofile(minetest.get_modpath("noisegrid").."/nodes.lua")
 
 -- Set mapgen parameters
 
@@ -120,7 +72,7 @@ end)
 -- On generated function
 
 minetest.register_on_generated(function(minp, maxp, seed)
-	if minp.y < -272 or minp.y > 208 then
+	if minp.y > 208 then
 		return
 	end
 
@@ -146,6 +98,12 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local c_roadblack = minetest.get_content_id("noisegrid:roadblack")
 	local c_roadwhite = minetest.get_content_id("noisegrid:roadwhite")
 	local c_path = minetest.get_content_id("noisegrid:path")
+	local c_stodiam = minetest.get_content_id("default:stone_with_diamond")
+	local c_stomese = minetest.get_content_id("default:stone_with_mese")
+	local c_stogold = minetest.get_content_id("default:stone_with_gold")
+	local c_stocopp = minetest.get_content_id("default:stone_with_copper")
+	local c_stoiron = minetest.get_content_id("default:stone_with_iron")
+	local c_stocoal = minetest.get_content_id("default:stone_with_coal")
 	
 	local sidelen = x1 - x0 + 1
 	local chulens = {x=sidelen, y=sidelen, z=sidelen}
@@ -153,6 +111,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local minposxz = {x=x0, y=z0}
 	
 	local nvals_base = minetest.get_perlin_map(np_base, chulens):get2dMap_flat(minposxz)
+	local nvals_fissure = minetest.get_perlin_map(np_fissure, chulens):get3dMap_flat(minposxyz)
 	
 	local cross = false
 	local nroad = false
@@ -176,6 +135,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	end
 	
 	local nixz = 1
+	local nixyz = 1
 	for z = z0, z1 do
 		for y = y0, y1 do
 			local vi = area:index(x0, y, z)
@@ -183,18 +143,31 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			for x = x0, x1 do
 				local xr = x - x0
 				local zr = z - z0
+				
 				local ysurf
+				local hills = false
+				local sea = false
+				local grid = false
 				local n_base = nvals_base[nixz]
 				local n_absbase = math.abs(n_base)
-				if n_base > TVAL then
-					ysurf = YVAL + math.floor((n_base - TVAL) * TERSCA)
-				elseif n_base < -TVAL then
-					ysurf = YVAL - math.floor((-TVAL - n_base) * TERSCA)
+				if n_base > TGRID then
+					ysurf = YGRID + math.floor((n_base - TGRID) * TERSCA)
+					hills = true
+				elseif n_base < -TGRID then
+					ysurf = YGRID - math.floor((-TGRID - n_base) * TERSCA)
+					sea = true
 				else
-					ysurf = YVAL
+					ysurf = YGRID
+					grid = true
 				end
 				
-				if y == YVAL and n_absbase <= TVAL then
+				local n_fissure = nvals_fissure[nixyz]
+				local nofis = false
+				if math.abs(n_fissure) > TFIS then
+					nofis = true
+				end
+				
+				if y == YGRID and grid then
 					if xr >= 36 and xr <= 42 and zr >= 36 and zr <= 42 -- centre
 					and (nroad or eroad or sroad or wroad) and cross then
 						data[vi] = c_roadblack
@@ -246,21 +219,57 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					and cross then
 						data[vi] = c_dirt
 						data[via] = c_path
+					else -- grass
+						if math.random() < APPCHA then
+							noisegrid_appletree(x, y+1, z, area, data)
+						else
+							data[vi] = c_grass
+							if math.random() < FLOCHA then
+								noisegrid_flower(data, via)
+							elseif math.random() < GRACHA then
+								noisegrid_grass(data, via)
+							end
+						end
+					end
+				elseif y <= ysurf - 4 and nofis then
+					if math.random() < ORECHA then
+						local osel = math.random(24)
+						if osel == 24 then
+							data[vi] = c_stodiam
+						elseif osel == 23 then
+							data[vi] = c_stomese
+						elseif osel == 22 then
+							data[vi] = c_stogold
+						elseif osel >= 19 then
+							data[vi] = c_stocopp
+						elseif osel >= 10 then
+							data[vi] = c_stoiron
+						else
+							data[vi] = c_stocoal
+						end
+					else
+						data[vi] = c_stone
+					end
+				elseif y <= ysurf and y >= ysurf - 7 and y <= YSAND and sea then
+					data[vi] = c_sand
+				elseif y == ysurf and (nofis or grid or sea) then -- grass
+					if math.random() < APPCHA then
+						noisegrid_appletree(x, y+1, z, area, data)
 					else
 						data[vi] = c_grass
+						if math.random() < FLOCHA then
+							noisegrid_flower(data, via)
+						elseif math.random() < GRACHA then
+							noisegrid_grass(data, via)
+						end
 					end
-				elseif y < ysurf - 3 then
-					data[vi] = c_stone
-				elseif y <= ysurf and y <= YSAND then
-					data[vi] = c_sand
-				elseif y == ysurf then
-					data[vi] = c_grass
-				elseif y < ysurf then
+				elseif y < ysurf and y >= ysurf - 3 and (nofis or grid) then
 					data[vi] = c_dirt
-				elseif y <= 1 then
+				elseif y <= 1 and y > ysurf then
 					data[vi] = c_water
 				end
 				nixz = nixz + 1
+				nixyz = nixyz + 1
 				vi = vi + 1
 				via = via + 1
 			end
