@@ -40,9 +40,9 @@ minetest.register_node("noisegrid:roadwhite", {
 	sounds = default.node_sound_stone_defaults(),
 })
 
-minetest.register_node("noisegrid:path", {
-	description = "Path",
-	tiles = {"noisegrid_pathtop.png", "noisegrid_pathtop.png", "noisegrid_pathside.png"},
+minetest.register_node("noisegrid:slab", {
+	description = "Paving Slab",
+	tiles = {"noisegrid_slabtop.png", "noisegrid_slabtop.png", "noisegrid_slabside.png"},
 	drawtype = "nodebox",
 	paramtype = "light",
 	is_ground_content = false,

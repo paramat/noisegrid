@@ -1,22 +1,23 @@
--- noisegrid 0.2.3 by paramat
+-- noisegrid 0.2.4 by paramat
 -- For latest stable Minetest and back to 0.4.8
 -- Depends default
 -- License: code WTFPL
 
--- Raised path slabs, wider paths.
+-- simpler road lines, junction dot
+-- sandstone path from path mod
 
 -- Parameters
 
-local YGRID = 5
-local YSAND = 3
+local YGRID = 7
+local YSAND = 4
 local TERSCA = 192
-local TROAD = 0.1
-local TGRID = 0.12
+local TROAD = 0.18
+local TGRID = 0.2
 local TFIS = 0.02 -- Fissure threshold, controls width
-local ORECHA = 1 / 5 ^ 3 -- Ore chance per stone node
-local APPCHA = 1 / 11 ^ 2 -- Appletree
+local ORECHA = 1 / 4 ^ 3 -- Ore chance per stone node
+local APPCHA = 1 / 4 ^ 2 -- Appletree maximum chance per grass node
 local CACCHA = 1 / 61 ^ 2 -- Cactus
-local FLOCHA = 1 / 23 ^ 2 -- Random flower
+local FLOCHA = 1 / 17 ^ 2 -- Random flower
 local GRACHA = 1 / 6 ^ 2 -- Grass
 
 -- 2D noise for base terrain
@@ -28,6 +29,28 @@ local np_base = {
 	seed = -9111,
 	octaves = 6,
 	persist = 0.6
+}
+
+-- 2D noise for trees
+
+local np_tree = {
+	offset = 0,
+	scale = 1,
+	spread = {x=256, y=256, z=256},
+	seed = 133338,
+	octaves = 3,
+	persist = 0.5
+}
+
+-- 2D noise for paths
+
+local np_path = {
+	offset = 0,
+	scale = 1,
+	spread = {x=512, y=512, z=512},
+	seed = 7000023,
+	octaves = 4,
+	persist = 0.4
 }
 
 -- 3D noise for fissures
@@ -93,17 +116,18 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local c_grass = minetest.get_content_id("noisegrid:grass")
 	local c_dirt = minetest.get_content_id("noisegrid:dirt")
 	local c_stone = minetest.get_content_id("noisegrid:stone")
-	local c_water = minetest.get_content_id("default:water_source")
-	local c_sand = minetest.get_content_id("default:sand")
 	local c_roadblack = minetest.get_content_id("noisegrid:roadblack")
 	local c_roadwhite = minetest.get_content_id("noisegrid:roadwhite")
-	local c_path = minetest.get_content_id("noisegrid:path")
+	local c_slab = minetest.get_content_id("noisegrid:slab")
+	local c_water = minetest.get_content_id("default:water_source")
+	local c_sand = minetest.get_content_id("default:sand")
 	local c_stodiam = minetest.get_content_id("default:stone_with_diamond")
 	local c_stomese = minetest.get_content_id("default:stone_with_mese")
 	local c_stogold = minetest.get_content_id("default:stone_with_gold")
 	local c_stocopp = minetest.get_content_id("default:stone_with_copper")
 	local c_stoiron = minetest.get_content_id("default:stone_with_iron")
 	local c_stocoal = minetest.get_content_id("default:stone_with_coal")
+	local c_path = minetest.get_content_id("default:sandstone")
 	
 	local sidelen = x1 - x0 + 1
 	local chulens = {x=sidelen, y=sidelen, z=sidelen}
@@ -111,6 +135,8 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local minposxz = {x=x0, y=z0}
 	
 	local nvals_base = minetest.get_perlin_map(np_base, chulens):get2dMap_flat(minposxz)
+	local nvals_tree = minetest.get_perlin_map(np_tree, chulens):get2dMap_flat(minposxz)
+	local nvals_path = minetest.get_perlin_map(np_path, chulens):get2dMap_flat(minposxz)
 	local nvals_fissure = minetest.get_perlin_map(np_fissure, chulens):get3dMap_flat(minposxyz)
 	
 	local cross = false
@@ -140,6 +166,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 		for y = y0, y1 do
 			local vi = area:index(x0, y, z)
 			local via = area:index(x0, y+1, z)
+			local n_xprepath = false
 			for x = x0, x1 do
 				local xr = x - x0
 				local zr = z - z0
@@ -148,6 +175,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				local hills = false
 				local sea = false
 				local grid = false
+				
 				local n_base = nvals_base[nixz]
 				local n_absbase = math.abs(n_base)
 				if n_base > TGRID then
@@ -167,66 +195,85 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					nofis = true
 				end
 				
-				if y == YGRID and grid then
+				local n_tree = math.min(math.max(nvals_tree[nixz], 0), 1)
+				local n_path = nvals_path[nixz]
+				local n_zprepath = nvals_path[(nixz - 80)]
+				
+				if y == ysurf and y > YSAND then
 					if xr >= 36 and xr <= 42 and zr >= 36 and zr <= 42 -- centre
 					and (nroad or eroad or sroad or wroad) and cross then
-						data[vi] = c_roadblack
+						if xr == 39 and zr == 39 then
+							data[vi] = c_roadwhite
+						else
+							data[vi] = c_roadblack
+						end
 					elseif xr >= 33 and xr <= 45 and zr >= 43 -- north
 					and nroad and cross then
-						if xr == 39
-						or (zr <= 45 and (xr == 37 or xr == 41)) then
+						if xr == 39 then
 							data[vi] = c_roadwhite
 						elseif xr >= 36 and xr <= 42 then
 							data[vi] = c_roadblack
 						else
 							data[vi] = c_dirt
-							data[via] = c_path
+							data[via] = c_slab
 						end
 					elseif xr >= 43 and zr >= 33 and zr <= 45 -- east
 					and eroad and cross then
-						if zr == 39
-						or (xr <= 45 and (zr == 37 or zr == 41)) then
+						if zr == 39 then
 							data[vi] = c_roadwhite
 						elseif zr >= 36 and zr <= 42 then
 							data[vi] = c_roadblack
 						else
 							data[vi] = c_dirt
-							data[via] = c_path
+							data[via] = c_slab
 						end
 					elseif xr >= 33 and xr <= 45 and zr <= 35 -- south
 					and sroad and cross then
-						if xr == 39
-						or (zr >= 33 and (xr == 37 or xr == 41)) then
+						if xr == 39 then
 							data[vi] = c_roadwhite
 						elseif xr >= 36 and xr <= 42 then
 							data[vi] = c_roadblack
 						else
 							data[vi] = c_dirt
-							data[via] = c_path
+							data[via] = c_slab
 						end
 					elseif xr <= 35 and zr >= 33 and zr <= 45 -- west
 					and wroad and cross then
-						if zr == 39
-						or (xr >= 33 and (zr == 37 or zr == 41)) then
+						if zr == 39 then
 							data[vi] = c_roadwhite
 						elseif zr >= 36 and zr <= 42 then
 							data[vi] = c_roadblack
 						else
 							data[vi] = c_dirt
-							data[via] = c_path
+							data[via] = c_slab
 						end
 					elseif xr >= 33 and xr <= 45 and zr >= 33 and zr <= 45
 					and cross then
 						data[vi] = c_dirt
-						data[via] = c_path
-					else -- grass
-						if math.random() < APPCHA then
+						data[via] = c_slab
+					elseif x > x0 and z > z0
+					and (((n_path >= 0 and n_xprepath < 0) -- paths
+					or (n_path < 0 and n_xprepath >= 0))
+					or ((n_path >= 0 and n_zprepath < 0)
+					or (n_path < 0 and n_zprepath >= 0))) then
+						for i = -1, 1 do
+						for k = -1, 1 do
+							local vi = area:index(x+i, y, z+k)
+							local nodid = data[vi]
+							if nodid ~= c_roadwhite and nodid ~= c_roadblack then
+								data[vi] = c_path
+							end
+						end
+						end
+					else -- dirt with grass
+						if math.random() < APPCHA * n_tree -- appletree
+						and math.abs(n_path) > 0.03 then
 							noisegrid_appletree(x, y+1, z, area, data)
 						else
 							data[vi] = c_grass
-							if math.random() < FLOCHA then
+							if math.random() < FLOCHA then -- flowers
 								noisegrid_flower(data, via)
-							elseif math.random() < GRACHA then
+							elseif math.random() < GRACHA then -- grasses
 								noisegrid_grass(data, via)
 							end
 						end
@@ -252,22 +299,12 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					end
 				elseif y <= ysurf and y >= ysurf - 7 and y <= YSAND and sea then
 					data[vi] = c_sand
-				elseif y == ysurf and (nofis or grid or sea) then -- grass
-					if math.random() < APPCHA then
-						noisegrid_appletree(x, y+1, z, area, data)
-					else
-						data[vi] = c_grass
-						if math.random() < FLOCHA then
-							noisegrid_flower(data, via)
-						elseif math.random() < GRACHA then
-							noisegrid_grass(data, via)
-						end
-					end
 				elseif y < ysurf and y >= ysurf - 3 and (nofis or grid) then
 					data[vi] = c_dirt
 				elseif y <= 1 and y > ysurf then
 					data[vi] = c_water
 				end
+				n_xprepath = n_path
 				nixz = nixz + 1
 				nixyz = nixyz + 1
 				vi = vi + 1
