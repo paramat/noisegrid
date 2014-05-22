@@ -3,10 +3,7 @@
 -- Depends default
 -- License: code WTFPL
 
--- path node
--- grass areas with varing density
--- stability system
--- spawnplayer at surface
+-- Fix spawnplayer: player scatter parameter, default 16 = 1280n, 128 tries
 
 -- Parameters
 
@@ -19,7 +16,7 @@ local TFIS = 0.02 -- Fissure threshold, controls width
 local ORECHA = 1 / 4 ^ 3 -- Ore chance per stone node
 local APPCHA = 1 / 4 ^ 2 -- Appletree maximum chance per grass node
 local FLOCHA = 1 / 13 ^ 2 -- Flowers chance per grass node
-local GRACHA = 1 / 4 ^ 2 -- Grasses maximum chance per grass node
+local GRACHA = 1 / 5 ^ 2 -- Grasses maximum chance per grass node
 
 -- 2D noise for base terrain
 
