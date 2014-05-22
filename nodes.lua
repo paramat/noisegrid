@@ -18,9 +18,18 @@ minetest.register_node("noisegrid:dirt", {
 	sounds = default.node_sound_dirt_defaults(),
 })
 
+minetest.register_node("noisegrid:path", {
+	description = "Dirt Path",
+	tiles = {"noisegrid_path.png"},
+	is_ground_content = false,
+	groups = {crumbly=3},
+	sounds = default.node_sound_dirt_defaults(),
+})
+
 minetest.register_node("noisegrid:stone", {
 	description = "Stone",
 	tiles = {"default_stone.png"},
+	is_ground_content = false,
 	groups = {cracky=3},
 	drop = "default:cobble",
 	sounds = default.node_sound_stone_defaults(),
@@ -29,6 +38,7 @@ minetest.register_node("noisegrid:stone", {
 minetest.register_node("noisegrid:roadblack", {
 	description = "Road Black",
 	tiles = {"noisegrid_roadblack.png"},
+	is_ground_content = false,
 	groups = {cracky=2},
 	sounds = default.node_sound_stone_defaults(),
 })
@@ -36,6 +46,7 @@ minetest.register_node("noisegrid:roadblack", {
 minetest.register_node("noisegrid:roadwhite", {
 	description = "Road White",
 	tiles = {"noisegrid_roadwhite.png"},
+	is_ground_content = false,
 	groups = {cracky=2},
 	sounds = default.node_sound_stone_defaults(),
 })
@@ -91,21 +102,11 @@ minetest.register_node("noisegrid:appling", {
 	wield_image = "default_sapling.png",
 	paramtype = "light",
 	walkable = false,
+	is_ground_content = false,
 	selection_box = {
 		type = "fixed",
 		fixed = {-0.3, -0.5, -0.3, 0.3, 0.35, 0.3}
 	},
 	groups = {snappy=2,dig_immediate=3,flammable=2,attached_node=1},
 	sounds = default.node_sound_leaves_defaults(),
-})
-
-minetest.register_node("noisegrid:cactus", {
-	description = "Cactus",
-	tiles = {"default_cactus_top.png", "default_cactus_top.png", "default_cactus_side.png"},
-	paramtype2 = "facedir",
-	is_ground_content = false,
-	groups = {snappy=1, choppy=3, flammable=2},
-	drop = "default:cactus",
-	sounds = default.node_sound_wood_defaults(),
-	on_place = minetest.rotate_node
 })

@@ -7,7 +7,7 @@ function noisegrid_appletree(x, y, z, area, data)
 			for i = -2, 2 do
 			for k = -2, 2 do
 				local vi = area:index(x + i, y + j, z + k)
-				if math.random(64) == 2 then
+				if math.random(50) == 2 then
 					data[vi] = c_apple
 				elseif math.random(5) ~= 2 then
 					data[vi] = c_appleaf
@@ -27,18 +27,6 @@ function noisegrid_appletree(x, y, z, area, data)
 			local vi = area:index(x, y + j, z)
 			data[vi] = c_tree
 		end
-	end
-end
-
-function noisegrid_cactus(x, y, z, area, data)
-	local c_cactus = minetest.get_content_id("noisegrid:cactus")
-	for j = -2, 4 do
-	for i = -2, 2 do
-		if i == 0 or j == 2 or (j == 3 and math.abs(i) == 2) then
-			local vi = area:index(x + i, y + j, z)
-			data[vi] = c_cactus
-		end
-	end
 	end
 end
 
@@ -109,3 +97,83 @@ minetest.register_abm({
 		vm:update_map()
 	end,
 })
+
+-- Set mapgen parameters
+
+minetest.register_on_mapgen_init(function(mgparams)
+	minetest.set_mapgen_params({mgname="singlenode"})
+end)
+
+-- Spawn player
+
+function spawnplayer(player)
+	local YFLAT = 7 -- Flat area elevation
+	local TERSCA = 192 -- Vertical terrain scale
+	local TFLAT = 0.2 -- Flat area width
+	local xsp
+	local ysp
+	local zsp
+	local np_base = {
+		offset = 0,
+		scale = 1,
+		spread = {x=2048, y=2048, z=2048},
+		seed = -9111,
+		octaves = 6,
+		persist = 0.6
+	}
+	for chunk = 1, 64 do
+		print ("[noisegrid] searching for spawn "..chunk)
+		local x0 = 80 * math.random(-4, 4) - 32
+		local z0 = 80 * math.random(-4, 4) - 32
+		local y0 = -32
+		local x1 = x0 + 79
+		local z1 = z0 + 79
+		local y1 = 47
+
+		local sidelen = 80
+		local chulens = {x=sidelen, y=sidelen, z=sidelen}
+		local minposxz = {x=x0, y=z0}
+
+		local nvals_base = minetest.get_perlin_map(np_base, chulens):get2dMap_flat(minposxz)
+
+		local nixz = 1
+		for z = z0, z1 do
+			for x = x0, x1 do
+				local ysurf
+				local n_base = nvals_base[nixz]
+				local n_absbase = math.abs(n_base)
+				if n_base > TFLAT then
+					ysurf = YFLAT + math.floor((n_base - TFLAT) * TERSCA)
+				elseif n_base < -TFLAT then
+					ysurf = YFLAT - math.floor((-TFLAT - n_base) * TERSCA)
+				else
+					ysurf = YFLAT
+				end
+				if ysurf >= 1 then
+					ysp = ysurf + 1
+					xsp = x
+					zsp = z
+					break
+				end
+				nixz = nixz + 1
+			end
+			if ysp then
+				break
+			end
+		end
+		if ysp then
+			break
+		end
+	end
+	print ("[noisegrid] spawn player ("..xsp.." "..ysp.." "..zsp..")")
+	player:setpos({x=xsp, y=ysp, z=zsp})
+end
+
+minetest.register_on_newplayer(function(player)
+	spawnplayer(player)
+end)
+
+minetest.register_on_respawnplayer(function(player)
+	spawnplayer(player)
+	return true
+end)
