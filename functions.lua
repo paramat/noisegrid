@@ -108,7 +108,7 @@ end)
 
 function spawnplayer(player)
 	-- Parameters
-	local SCAT = 16 -- Player scatter. Maximum distance in chunks (80 nodes) of player spawn from (0, 0, 0)
+	local PSCA = 16 -- Player scatter. Maximum distance in chunks (80 nodes) of player spawn from (0, 0, 0)
 	local YFLAT = 7 -- Flat area elevation
 	local TERSCA = 192 -- Vertical terrain scale
 	local TFLAT = 0.2 -- Flat area width
@@ -126,8 +126,8 @@ function spawnplayer(player)
 	}
 	for chunk = 1, 128 do
 		print ("[noisegrid] searching for spawn "..chunk)
-		local x0 = 80 * math.random(-SCAT, SCAT) - 32
-		local z0 = 80 * math.random(-SCAT, SCAT) - 32
+		local x0 = 80 * math.random(-PSCA, PSCA) - 32
+		local z0 = 80 * math.random(-PSCA, PSCA) - 32
 		local y0 = -32
 		local x1 = x0 + 79
 		local z1 = z0 + 79

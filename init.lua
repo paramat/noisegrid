@@ -1,17 +1,20 @@
--- noisegrid 0.2.5 by paramat
+-- noisegrid 0.3.0 by paramat
 -- For latest stable Minetest and back to 0.4.8
 -- Depends default
 -- License: code WTFPL
 
--- Fix spawnplayer: player scatter parameter, default 16 = 1280n, 128 tries
+-- add roads from path mod
+-- thin dirt with altitude
 
 -- Parameters
 
 local YFLAT = 7 -- Flat area elevation
 local YSAND = 4 -- Top of beach
 local TERSCA = 192 -- Vertical terrain scale
+local STODEP = 5 -- Stone depth below surface at sea level
 local TROAD = 0.18 -- road grid area width
 local TFLAT = 0.2 -- Flat area width
+local WID = 3 -- Curving road lane width
 local TFIS = 0.02 -- Fissure threshold, controls width
 local ORECHA = 1 / 4 ^ 3 -- Ore chance per stone node
 local APPCHA = 1 / 4 ^ 2 -- Appletree maximum chance per grass node
@@ -62,6 +65,28 @@ local np_path = {
 	persist = 0.4
 }
 
+-- 2D noise for intercity roads
+
+local np_road = {
+	offset = 0,
+	scale = 1,
+	spread = {x=2048, y=2048, z=2048},
+	seed = -9111,
+	octaves = 4,
+	persist = 0.6
+}
+
+-- 2D noise for grid areas
+
+local np_grid = {
+	offset = 0,
+	scale = 1,
+	spread = {x=1024, y=1024, z=1024},
+	seed = 3166616,
+	octaves = 2,
+	persist = 0.4
+}
+
 -- 3D noise for fissures
 
 local np_fissure = {
@@ -76,6 +101,8 @@ local np_fissure = {
 -- Stuff
 
 noisegrid = {}
+
+local rad = WID ^ 2 + 4
 
 dofile(minetest.get_modpath("noisegrid").."/functions.lua")
 dofile(minetest.get_modpath("noisegrid").."/nodes.lua")
@@ -126,6 +153,8 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local nvals_tree = minetest.get_perlin_map(np_tree, chulens):get2dMap_flat(minposxz)
 	local nvals_grass = minetest.get_perlin_map(np_grass, chulens):get2dMap_flat(minposxz)
 	local nvals_path = minetest.get_perlin_map(np_path, chulens):get2dMap_flat(minposxz)
+	local nvals_road = minetest.get_perlin_map(np_road, chulens):get2dMap_flat(minposxz)
+	local nvals_grid = minetest.get_perlin_map(np_grid, chulens):get2dMap_flat(minposxz)
 	local nvals_fissure = minetest.get_perlin_map(np_fissure, chulens):get3dMap_flat(minposxyz)
 	
 	local cross = false
@@ -161,13 +190,15 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			local vi = area:index(x0, y, z)
 			local via = area:index(x0, y+1, z)
 			local n_xprepath = false
+			local n_xpreroad = false
 			for x = x0, x1 do
+				local nodid = data[vi]
 				local si = x - x0 + 1
 				local xr = x - x0
 				local zr = z - z0
+				
 				local sea = false
 				local flat = false
-				
 				local ysurf
 				local n_base = nvals_base[nixz]
 				local n_absbase = math.abs(n_base)
@@ -182,96 +213,20 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				end
 				
 				local n_fissure = nvals_fissure[nixyz]
-				local nofis = false
-				if math.abs(n_fissure) > TFIS then
-					nofis = true
-				end
+				local nofis = math.abs(n_fissure) > TFIS
+				
+				local n_grid = nvals_grid[nixz]
+				local grid = n_grid > 0.3
 				
 				local n_tree = math.min(math.max(nvals_tree[nixz], 0), 1)
 				local n_grass = math.min(math.max(nvals_grass[nixz], 0), 1)
 				local n_path = nvals_path[nixz]
 				local n_zprepath = nvals_path[(nixz - 80)]
+				local n_road = nvals_road[nixz]
+				local n_zpreroad = nvals_road[(nixz - 80)]
+				local stodep = math.max(STODEP * (TERSCA - y) / TERSCA, 1)
 				
-				if y == ysurf and y > YSAND then
-					if xr >= 36 and xr <= 42 and zr >= 36 and zr <= 42 -- centre
-					and (nroad or eroad or sroad or wroad) and cross then
-						if xr == 39 and zr == 39 then
-							data[vi] = c_roadwhite
-						else
-							data[vi] = c_roadblack
-						end
-					elseif xr >= 33 and xr <= 45 and zr >= 43 -- north
-					and nroad and cross then
-						if xr == 39 then
-							data[vi] = c_roadwhite
-						elseif xr >= 36 and xr <= 42 then
-							data[vi] = c_roadblack
-						else
-							data[vi] = c_dirt
-							data[via] = c_slab
-						end
-					elseif xr >= 43 and zr >= 33 and zr <= 45 -- east
-					and eroad and cross then
-						if zr == 39 then
-							data[vi] = c_roadwhite
-						elseif zr >= 36 and zr <= 42 then
-							data[vi] = c_roadblack
-						else
-							data[vi] = c_dirt
-							data[via] = c_slab
-						end
-					elseif xr >= 33 and xr <= 45 and zr <= 35 -- south
-					and sroad and cross then
-						if xr == 39 then
-							data[vi] = c_roadwhite
-						elseif xr >= 36 and xr <= 42 then
-							data[vi] = c_roadblack
-						else
-							data[vi] = c_dirt
-							data[via] = c_slab
-						end
-					elseif xr <= 35 and zr >= 33 and zr <= 45 -- west
-					and wroad and cross then
-						if zr == 39 then
-							data[vi] = c_roadwhite
-						elseif zr >= 36 and zr <= 42 then
-							data[vi] = c_roadblack
-						else
-							data[vi] = c_dirt
-							data[via] = c_slab
-						end
-					elseif xr >= 33 and xr <= 45 and zr >= 33 and zr <= 45
-					and cross then
-						data[vi] = c_dirt
-						data[via] = c_slab
-					elseif x > x0 and z > z0
-					and (((n_path >= 0 and n_xprepath < 0) -- paths
-					or (n_path < 0 and n_xprepath >= 0))
-					or ((n_path >= 0 and n_zprepath < 0)
-					or (n_path < 0 and n_zprepath >= 0))) then
-						for i = -1, 1 do
-						for k = -1, 1 do
-							local vi = area:index(x+i, y, z+k)
-							local nodid = data[vi]
-							if nodid ~= c_roadwhite and nodid ~= c_roadblack then
-								data[vi] = c_path
-							end
-						end
-						end
-					elseif stable[si] >= 2 then -- dirt with grass
-						if math.random() < APPCHA * n_tree -- appletree
-						and math.abs(n_path) > 0.03 then
-							noisegrid_appletree(x, y+1, z, area, data)
-						else
-							data[vi] = c_grass
-							if math.random() < FLOCHA then -- flowers
-								noisegrid_flower(data, via)
-							elseif math.random() < GRACHA * n_grass then -- grasses
-								noisegrid_grass(data, via)
-							end
-						end
-					end
-				elseif y <= ysurf - 4 and (nofis or ((flat or sea) and y >= ysurf - 8)) then
+				if y <= ysurf - stodep and (nofis or ((flat or sea) and y >= ysurf - 16)) then -- stone
 					if math.random() < ORECHA then
 						local osel = math.random(24)
 						if osel == 24 then
@@ -291,17 +246,114 @@ minetest.register_on_generated(function(minp, maxp, seed)
 						data[vi] = c_stone
 					end
 					stable[si] = stable[si] + 1
-				elseif y <= ysurf and y >= ysurf - 7 and y <= YSAND and sea  and stable[si] >= 2 then
+				elseif y == ysurf and y > YSAND then -- surface layer
+					if xr >= 36 and xr <= 42 and zr >= 36 and zr <= 42 -- centre
+					and (nroad or eroad or sroad or wroad) and cross and grid then
+						if xr == 39 and zr == 39 then
+							data[vi] = c_roadwhite
+						else
+							data[vi] = c_roadblack
+						end
+					elseif xr >= 33 and xr <= 45 and zr >= 43 -- north
+					and nroad and cross and grid then
+						if xr == 39 then
+							data[vi] = c_roadwhite
+						elseif xr >= 36 and xr <= 42 then
+							data[vi] = c_roadblack
+						else
+							data[vi] = c_dirt
+							data[via] = c_slab
+						end
+					elseif xr >= 43 and zr >= 33 and zr <= 45 -- east
+					and eroad and cross and grid then
+						if zr == 39 then
+							data[vi] = c_roadwhite
+						elseif zr >= 36 and zr <= 42 then
+							data[vi] = c_roadblack
+						else
+							data[vi] = c_dirt
+							data[via] = c_slab
+						end
+					elseif xr >= 33 and xr <= 45 and zr <= 35 -- south
+					and sroad and cross and grid then
+						if xr == 39 then
+							data[vi] = c_roadwhite
+						elseif xr >= 36 and xr <= 42 then
+							data[vi] = c_roadblack
+						else
+							data[vi] = c_dirt
+							data[via] = c_slab
+						end
+					elseif xr <= 35 and zr >= 33 and zr <= 45 -- west
+					and wroad and cross and grid then
+						if zr == 39 then
+							data[vi] = c_roadwhite
+						elseif zr >= 36 and zr <= 42 then
+							data[vi] = c_roadblack
+						else
+							data[vi] = c_dirt
+							data[via] = c_slab
+						end
+					elseif xr >= 33 and xr <= 45 and zr >= 33 and zr <= 45
+					and cross and grid then
+						data[vi] = c_dirt
+						data[via] = c_slab
+					elseif (not grid) and x > x0 and z > z0
+					and (((n_road >= 0 and n_xpreroad < 0) -- curving road
+					or (n_road < 0 and n_xpreroad >= 0))
+					or ((n_road >= 0 and n_zpreroad < 0)
+					or (n_road < 0 and n_zpreroad >= 0))) then
+						data[vi] = c_roadwhite
+						for i = -WID, WID do
+						for k = -WID, WID do
+							if (math.abs(i)) ^ 2 + (math.abs(k)) ^ 2 <= rad then
+								local vi = area:index(x+i, y, z+k)
+								local nodid = data[vi]
+								if nodid ~= c_roadwhite then
+									data[vi] = c_roadblack
+								end
+							end
+						end
+						end
+					elseif x > x0 and z > z0 -- path
+					and (((n_path >= 0 and n_xprepath < 0)
+					or (n_path < 0 and n_xprepath >= 0))
+					or ((n_path >= 0 and n_zprepath < 0)
+					or (n_path < 0 and n_zprepath >= 0))) then
+						for i = -1, 1 do
+						for k = -1, 1 do
+							local vi = area:index(x+i, y, z+k)
+							local nodid = data[vi]
+							if nodid ~= c_roadwhite and nodid ~= c_roadblack then
+								data[vi] = c_path
+							end
+						end
+						end
+					elseif stable[si] >= 2 and nodid ~= c_roadblack and nodid ~= c_path then -- dirt with grass
+						if math.random() < APPCHA * n_tree -- appletree
+						and math.abs(n_path) > 0.03 and math.abs(n_road) > 0.02 then
+							noisegrid_appletree(x, y+1, z, area, data)
+						else
+							data[vi] = c_grass
+							if math.random() < FLOCHA and math.abs(n_road) > 0.02 then -- flowers
+								noisegrid_flower(data, via)
+							elseif math.random() < GRACHA * n_grass and math.abs(n_road) > 0.02 then -- grasses
+								noisegrid_grass(data, via)
+							end
+						end
+					end
+				elseif y <= ysurf and y >= ysurf - 16 and y <= YSAND and sea and stable[si] >= 2 then -- sand
 					data[vi] = c_sand
-				elseif y < ysurf and y >= ysurf - 3 and (nofis or flat) and stable[si] >= 2 then
+				elseif y < ysurf and y > ysurf - stodep and (nofis or flat) and stable[si] >= 2 then -- dirt
 					data[vi] = c_dirt
-				elseif y <= 1 and y > ysurf then
+				elseif y <= 1 and y > ysurf then -- water
 					data[vi] = c_water
 					stable[si] = 0
 				else -- air
 					stable[si] = 0
 				end
 				n_xprepath = n_path
+				n_xpreroad = n_road
 				nixz = nixz + 1
 				nixyz = nixyz + 1
 				vi = vi + 1
