@@ -1,10 +1,7 @@
--- noisegrid 0.3.0 by paramat
+-- noisegrid 0.3.1 by paramat
 -- For latest stable Minetest and back to 0.4.8
 -- Depends default
 -- License: code WTFPL
-
--- add roads from path mod
--- thin dirt with altitude
 
 -- Parameters
 
@@ -128,6 +125,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local area = VoxelArea:new{MinEdge=emin, MaxEdge=emax}
 	local data = vm:get_data()
 	
+	local c_air = minetest.get_content_id("air")
 	local c_grass = minetest.get_content_id("noisegrid:grass")
 	local c_dirt = minetest.get_content_id("noisegrid:dirt")
 	local c_stone = minetest.get_content_id("noisegrid:stone")
@@ -216,13 +214,14 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				local nofis = math.abs(n_fissure) > TFIS
 				
 				local n_grid = nvals_grid[nixz]
-				local grid = n_grid > 0.3
+				local grid = n_grid > -0.3
 				
 				local n_tree = math.min(math.max(nvals_tree[nixz], 0), 1)
 				local n_grass = math.min(math.max(nvals_grass[nixz], 0), 1)
 				local n_path = nvals_path[nixz]
 				local n_zprepath = nvals_path[(nixz - 80)]
 				local n_road = nvals_road[nixz]
+				local n_absroad = math.abs(n_road)
 				local n_zpreroad = nvals_road[(nixz - 80)]
 				local stodep = math.max(STODEP * (TERSCA - y) / TERSCA, 1)
 				
@@ -247,58 +246,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					end
 					stable[si] = stable[si] + 1
 				elseif y == ysurf and y > YSAND then -- surface layer
-					if xr >= 36 and xr <= 42 and zr >= 36 and zr <= 42 -- centre
-					and (nroad or eroad or sroad or wroad) and cross and grid then
-						if xr == 39 and zr == 39 then
-							data[vi] = c_roadwhite
-						else
-							data[vi] = c_roadblack
-						end
-					elseif xr >= 33 and xr <= 45 and zr >= 43 -- north
-					and nroad and cross and grid then
-						if xr == 39 then
-							data[vi] = c_roadwhite
-						elseif xr >= 36 and xr <= 42 then
-							data[vi] = c_roadblack
-						else
-							data[vi] = c_dirt
-							data[via] = c_slab
-						end
-					elseif xr >= 43 and zr >= 33 and zr <= 45 -- east
-					and eroad and cross and grid then
-						if zr == 39 then
-							data[vi] = c_roadwhite
-						elseif zr >= 36 and zr <= 42 then
-							data[vi] = c_roadblack
-						else
-							data[vi] = c_dirt
-							data[via] = c_slab
-						end
-					elseif xr >= 33 and xr <= 45 and zr <= 35 -- south
-					and sroad and cross and grid then
-						if xr == 39 then
-							data[vi] = c_roadwhite
-						elseif xr >= 36 and xr <= 42 then
-							data[vi] = c_roadblack
-						else
-							data[vi] = c_dirt
-							data[via] = c_slab
-						end
-					elseif xr <= 35 and zr >= 33 and zr <= 45 -- west
-					and wroad and cross and grid then
-						if zr == 39 then
-							data[vi] = c_roadwhite
-						elseif zr >= 36 and zr <= 42 then
-							data[vi] = c_roadblack
-						else
-							data[vi] = c_dirt
-							data[via] = c_slab
-						end
-					elseif xr >= 33 and xr <= 45 and zr >= 33 and zr <= 45
-					and cross and grid then
-						data[vi] = c_dirt
-						data[via] = c_slab
-					elseif (not grid) and x > x0 and z > z0
+					if x > x0 and z > z0
 					and (((n_road >= 0 and n_xpreroad < 0) -- curving road
 					or (n_road < 0 and n_xpreroad >= 0))
 					or ((n_road >= 0 and n_zpreroad < 0)
@@ -308,13 +256,69 @@ minetest.register_on_generated(function(minp, maxp, seed)
 						for k = -WID, WID do
 							if (math.abs(i)) ^ 2 + (math.abs(k)) ^ 2 <= rad then
 								local vi = area:index(x+i, y, z+k)
+								local via = area:index(x+i, y+1, z+k)
 								local nodid = data[vi]
 								if nodid ~= c_roadwhite then
 									data[vi] = c_roadblack
 								end
+								data[via] = c_air
 							end
 						end
 						end
+					elseif xr >= 36 and xr <= 42 and zr >= 36 and zr <= 42 -- centre
+					and (nroad or eroad or sroad or wroad) and cross and grid and nodid ~= c_roadblack then
+						if xr == 39 and zr == 39 then
+							data[vi] = c_roadwhite
+						else
+							data[vi] = c_roadblack
+						end
+					elseif xr >= 33 and xr <= 45 and zr >= 43 -- north
+					and nroad and cross and grid and nodid ~= c_roadblack then
+						if xr == 39 then
+							data[vi] = c_roadwhite
+						elseif xr >= 36 and xr <= 42 then
+							data[vi] = c_roadblack
+						else
+							data[vi] = c_dirt
+							data[via] = c_slab
+						end
+					elseif xr >= 43 and zr >= 33 and zr <= 45 -- east
+					and eroad and cross and grid and nodid ~= c_roadblack then
+						if zr == 39 then
+							data[vi] = c_roadwhite
+						elseif zr >= 36 and zr <= 42 then
+							data[vi] = c_roadblack
+						else
+							data[vi] = c_dirt
+							data[via] = c_slab
+						end
+					elseif xr >= 33 and xr <= 45 and zr <= 35 -- south
+					and sroad and cross and grid and nodid ~= c_roadblack then
+						if xr == 39 then
+							data[vi] = c_roadwhite
+						elseif xr >= 36 and xr <= 42 then
+							data[vi] = c_roadblack
+						else
+							data[vi] = c_dirt
+							data[via] = c_slab
+						end
+					elseif xr <= 35 and zr >= 33 and zr <= 45 -- west
+					and wroad and cross and grid and nodid ~= c_roadblack then
+						if zr == 39 then
+							data[vi] = c_roadwhite
+						elseif zr >= 36 and zr <= 42 then
+							data[vi] = c_roadblack
+						else
+							data[vi] = c_dirt
+							data[via] = c_slab
+						end
+					elseif xr >= 33 and xr <= 45 and zr >= 33 and zr <= 45 -- pavement in gaps
+					and cross and grid and nodid ~= c_roadblack then
+						data[vi] = c_dirt
+						data[via] = c_slab
+					elseif n_absroad < 0.02 and grid and nodid ~= c_roadblack then -- pavement around road in city
+						data[vi] = c_dirt
+						data[via] = c_slab
 					elseif x > x0 and z > z0 -- path
 					and (((n_path >= 0 and n_xprepath < 0)
 					or (n_path < 0 and n_xprepath >= 0))
