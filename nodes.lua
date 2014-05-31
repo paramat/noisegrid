@@ -110,3 +110,19 @@ minetest.register_node("noisegrid:appling", {
 	groups = {snappy=2,dig_immediate=3,flammable=2,attached_node=1},
 	sounds = default.node_sound_leaves_defaults(),
 })
+
+minetest.register_node("noisegrid:lightoff", {
+	description = "Light",
+	tiles = {"noisegrid_light.png"},
+	light_source = 14,
+	groups = {cracky=3,oddly_breakable_by_hand=3},
+	sounds = default.node_sound_glass_defaults(),
+})
+
+minetest.register_node("noisegrid:lighton", {
+	description = "Light",
+	tiles = {"noisegrid_light.png"},
+	light_source = 14,
+	groups = {cracky=3,oddly_breakable_by_hand=3},
+	sounds = default.node_sound_glass_defaults(),
+})

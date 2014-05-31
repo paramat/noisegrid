@@ -98,6 +98,16 @@ minetest.register_abm({
 	end,
 })
 
+minetest.register_abm({
+	nodenames = {"noisegrid:lightoff"},
+	interval = 5,
+	chance = 8,
+	action = function(pos, node)
+		minetest.add_node(pos, {name="noisegrid:lighton"})
+		nodeupdate(pos)
+	end,
+})
+
 -- Set mapgen parameters
 
 minetest.register_on_mapgen_init(function(mgparams)
