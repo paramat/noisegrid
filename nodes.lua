@@ -53,7 +53,7 @@ minetest.register_node("noisegrid:roadwhite", {
 
 minetest.register_node("noisegrid:slab", {
 	description = "Paving Slab",
-	tiles = {"noisegrid_slabtop.png", "noisegrid_slabtop.png", "noisegrid_slabside.png"},
+	tiles = {"noisegrid_concrete.png", "noisegrid_concrete.png", "noisegrid_slabside.png"},
 	drawtype = "nodebox",
 	paramtype = "light",
 	is_ground_content = false,
@@ -125,4 +125,12 @@ minetest.register_node("noisegrid:lighton", {
 	light_source = 14,
 	groups = {cracky=3,oddly_breakable_by_hand=3},
 	sounds = default.node_sound_glass_defaults(),
+})
+
+minetest.register_node("noisegrid:concrete", {
+	description = "Sandy Concrete",
+	tiles = {"noisegrid_concrete.png"},
+	is_ground_content = false,
+	groups = {cracky=3},
+	sounds = default.node_sound_stone_defaults(),
 })

@@ -1,10 +1,11 @@
--- noisegrid 0.3.4 by paramat
+-- noisegrid 0.3.5 by paramat
 -- For latest stable Minetest and back to 0.4.8
 -- Depends default
 -- License: code WTFPL
 
--- alt road and tunnels
--- correct grid element noise indexes
+-- thicker tunnel roof
+-- sandy concrete pavements, tunnels
+-- many bugfixes
 
 -- Parameters
 
@@ -19,8 +20,8 @@ local TCITY = 0.3 -- City size. 0.3 = 1/3 of coastal land area, 0 = 1/2 of coast
 local TFIS = 0.02 -- Fissure width
 local ORECHA = 1 / 5 ^ 3 -- Ore chance per stone node. 1 / n ^ 3 where n = average distance between ores
 local APPCHA = 1 / 4 ^ 2 -- Appletree maximum chance per grass node. 1 / n ^ 2 where n = minimum average distance between flora
-local FLOCHA = 1 / 7 ^ 2 -- Flowers maximum chance per grass node
-local GRACHA = 1 / 4 ^ 2 -- Grasses maximum chance per grass node
+local FLOCHA = 1 / 13 ^ 2 -- Flowers maximum chance per grass node
+local GRACHA = 1 / 5 ^ 2 -- Grasses maximum chance per grass node
 
 -- 2D noise for base terrain
 
@@ -51,7 +52,7 @@ local np_alt = {
 	scale = 1,
 	spread = {x=1024, y=1024, z=1024},
 	seed = 11,
-	octaves = 4,
+	octaves = 3,
 	persist = 0.4
 }
 
@@ -158,6 +159,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local c_slab = minetest.get_content_id("noisegrid:slab")
 	local c_path = minetest.get_content_id("noisegrid:path")
 	local c_light = minetest.get_content_id("noisegrid:lightoff")
+	local c_concrete = minetest.get_content_id("noisegrid:concrete")
 	
 	local c_water = minetest.get_content_id("default:water_source")
 	local c_sand = minetest.get_content_id("default:sand")
@@ -252,7 +254,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				local stodep = math.max(STODEP * (TERSCA - y) / TERSCA, 1)
 				
 				if chunk then
-					if y == YFLAT -- tunnel road
+					if y == YFLAT and n_base > -TGRID -- tunnel road
 					and (((n_alt >= 0 and n_xprealt < 0)
 					or (n_alt < 0 and n_xprealt >= 0))
 					or ((n_alt >= 0 and n_zprealt < 0)
@@ -262,25 +264,27 @@ minetest.register_on_generated(function(minp, maxp, seed)
 						for k = -3, 3 do
 							if (math.abs(i)) ^ 2 + (math.abs(k)) ^ 2 <= 13 then
 								local vi = area:index(x+i, y, z+k)
+								local via = area:index(x+i, y+1, z+k)
 								local nodid = data[vi]
 								if nodid ~= c_roadwhite then
 									data[vi] = c_roadblack
 								end
+								data[via] = c_air
 							end
 						end
 						end
-					elseif y <= ysurf and y >= YFLAT + 1 and y <= YFLAT + 4 and n_absalt < 0.025 then
+					elseif y <= ysurf and y >= YFLAT + 1 and y <= YFLAT + 4 and n_absalt < 0.025 then -- tunnel air
 						data[vi] = c_air
 						stable[si] = 0
-					elseif y <= ysurf - 1 and y == YFLAT + 5 and n_absalt > 0.003 and n_absalt < 0.007 then
+					elseif y <= ysurf - 1 and y == YFLAT + 5 and n_absalt > 0.003 and n_absalt < 0.007 then -- tunnel lights
 						data[vi] = c_light
-						stable[si] = 2
-					elseif y <= ysurf and y >= YFLAT and y <= YFLAT + 5
-					and n_absalt < 0.035 and n_absbase > TFLAT and nodid ~= c_roadblack then
-						data[vi] = c_stone
-						stable[si] = 2
-					elseif y <= ysurf - stodep and (nofis or ((flat or sea)
-					and y >= ysurf - 16)) and nodid ~= c_roadblack then -- stone
+						stable[si] = stable[si] + 1
+					elseif y <= ysurf and y >= YFLAT and y <= YFLAT + 6 -- tunnel concrete
+					and n_absalt < 0.035 and n_base > TFLAT and nodid ~= c_roadblack then
+						data[vi] = c_concrete
+						stable[si] = stable[si] + 1
+					elseif y <= ysurf - stodep and (nofis or ((flat or sea) -- stone
+					and y >= ysurf - 16)) and nodid ~= c_roadblack then
 						if math.random() < ORECHA then
 							local osel = math.random(24)
 							if osel == 24 then
@@ -368,7 +372,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 						and (nroad or eroad or sroad or wroad) and cross and nodid ~= c_roadblack then
 							data[vi] = c_dirt
 							data[via] = c_slab
-						elseif (n_absroad < 0.01 or n_absalt < 0.02) and city and nodid ~= c_roadblack then
+						elseif (n_absroad < 0.01 or n_absalt < 0.02) and flat and city and nodid ~= c_roadblack then
 							data[vi] = c_dirt -- pavement of intercity road and tunnel road in city
 							data[via] = c_slab
 						elseif ((n_path >= 0 and n_xprepath < 0) or (n_path < 0 and n_xprepath >= 0)) -- path
