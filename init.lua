@@ -1,26 +1,26 @@
--- noisegrid 0.3.2 by paramat
+-- noisegrid 0.3.3 by paramat
 -- For latest stable Minetest and back to 0.4.8
 -- Depends default
 -- License: code WTFPL
 
--- vary flower density
--- streets not cut by city biome
+-- add x and z overgeneration
+-- fix random junction pavement
 
 -- Parameters
 
-local YFLAT = 7 -- Flat area elevation
-local YSAND = 4 -- Top of beach
-local TERSCA = 192 -- Vertical terrain scale
-local STODEP = 5 -- Stone depth below surface at sea level
+local YFLAT = 7 -- Flat area elevation y
+local YSAND = 4 -- Top of beach y
+local TERSCA = 192 -- Vertical terrain scale in nodes
+local STODEP = 5 -- Stone depth below surface in nodes at sea level
 local TGRID = 0.18 -- Grid area width
 local TFLAT = 0.2 -- Flat coastal area width
 local TCITY = 0.3 -- City size. 0.3 = 1/3 of coastal land area, 0 = 1/2 of coastal land area
 
-local TFIS = 0.02 -- Fissure threshold, controls width
-local ORECHA = 1 / 4 ^ 3 -- Ore chance per stone node. 1 / n ^ 3 where n = average distance between ores
-local APPCHA = 1 / 4 ^ 2 -- Appletree maximum chance per grass node. 1 / n ^ 2 where n = minimum distance between flora
-local FLOCHA = 1 / 6 ^ 2 -- Flowers maximum chance per grass node
-local GRACHA = 1 / 5 ^ 2 -- Grasses maximum chance per grass node
+local TFIS = 0.02 -- Fissure width
+local ORECHA = 1 / 5 ^ 3 -- Ore chance per stone node. 1 / n ^ 3 where n = average distance between ores
+local APPCHA = 1 / 4 ^ 2 -- Appletree maximum chance per grass node. 1 / n ^ 2 where n = minimum average distance between flora
+local FLOCHA = 1 / 7 ^ 2 -- Flowers maximum chance per grass node
+local GRACHA = 1 / 4 ^ 2 -- Grasses maximum chance per grass node
 
 -- 2D noise for base terrain
 
@@ -31,50 +31,6 @@ local np_base = {
 	seed = -9111,
 	octaves = 6,
 	persist = 0.6
-}
-
--- 2D noise for trees
-
-local np_tree = {
-	offset = 0,
-	scale = 1,
-	spread = {x=256, y=256, z=256},
-	seed = 133338,
-	octaves = 3,
-	persist = 0.5
-}
-
--- 2D noise for grasses
-
-local np_grass = {
-	offset = 0,
-	scale = 1,
-	spread = {x=128, y=128, z=128},
-	seed = 133,
-	octaves = 2,
-	persist = 0.5
-}
-
--- 2D noise for flowers
-
-local np_flower = {
-	offset = 0,
-	scale = 1,
-	spread = {x=256, y=256, z=256},
-	seed = -70008,
-	octaves = 2,
-	persist = 0.5
-}
-
--- 2D noise for paths
-
-local np_path = {
-	offset = 0,
-	scale = 1,
-	spread = {x=256, y=256, z=256},
-	seed = 7000023,
-	octaves = 4,
-	persist = 0.4
 }
 
 -- 2D noise for intercity roads
@@ -95,8 +51,52 @@ local np_city = {
 	scale = 1,
 	spread = {x=1024, y=1024, z=1024},
 	seed = 3166616,
-	octaves = 2,
+	octaves = 3,
+	persist = 0.5
+}
+
+-- 2D noise for paths
+
+local np_path = {
+	offset = 0,
+	scale = 1,
+	spread = {x=256, y=256, z=256},
+	seed = 7000023,
+	octaves = 4,
 	persist = 0.4
+}
+
+-- 2D noise for trees
+
+local np_tree = {
+	offset = 0,
+	scale = 1,
+	spread = {x=256, y=256, z=256},
+	seed = 133338,
+	octaves = 3,
+	persist = 0.5
+}
+
+-- 2D noise for grasses
+
+local np_grass = {
+	offset = 0,
+	scale = 1,
+	spread = {x=256, y=256, z=256},
+	seed = 133,
+	octaves = 2,
+	persist = 0.5
+}
+
+-- 2D noise for flowers
+
+local np_flower = {
+	offset = 0,
+	scale = 1,
+	spread = {x=256, y=256, z=256},
+	seed = -70008,
+	octaves = 2,
+	persist = 0.5
 }
 
 -- 3D noise for fissures
@@ -156,18 +156,20 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local c_stocoal = minetest.get_content_id("default:stone_with_coal")
 	
 	local sidelen = x1 - x0 + 1
-	local chulens = {x=sidelen, y=sidelen, z=sidelen}
-	local minposxyz = {x=x0, y=y0, z=z0}
-	local minposxz = {x=x0, y=z0}
+	local chulensxyz = {x=sidelen+1, y=sidelen, z=sidelen+1}
+	local minposxyz = {x=x0-1, y=y0, z=z0-1}
+	local chulensxz = {x=sidelen+1, y=sidelen+1, z=sidelen}
+	local minposxz = {x=x0-1, y=z0-1}
 	
-	local nvals_base = minetest.get_perlin_map(np_base, chulens):get2dMap_flat(minposxz)
-	local nvals_tree = minetest.get_perlin_map(np_tree, chulens):get2dMap_flat(minposxz)
-	local nvals_grass = minetest.get_perlin_map(np_grass, chulens):get2dMap_flat(minposxz)
-	local nvals_flower = minetest.get_perlin_map(np_flower, chulens):get2dMap_flat(minposxz)
-	local nvals_path = minetest.get_perlin_map(np_path, chulens):get2dMap_flat(minposxz)
-	local nvals_road = minetest.get_perlin_map(np_road, chulens):get2dMap_flat(minposxz)
-	local nvals_city = minetest.get_perlin_map(np_city, chulens):get2dMap_flat(minposxz)
-	local nvals_fissure = minetest.get_perlin_map(np_fissure, chulens):get3dMap_flat(minposxyz)
+	local nvals_base = minetest.get_perlin_map(np_base, chulensxz):get2dMap_flat(minposxz)
+	local nvals_road = minetest.get_perlin_map(np_road, chulensxz):get2dMap_flat(minposxz)
+	local nvals_city = minetest.get_perlin_map(np_city, chulensxz):get2dMap_flat(minposxz)
+	local nvals_path = minetest.get_perlin_map(np_path, chulensxz):get2dMap_flat(minposxz)
+	local nvals_tree = minetest.get_perlin_map(np_tree, chulensxz):get2dMap_flat(minposxz)
+	local nvals_grass = minetest.get_perlin_map(np_grass, chulensxz):get2dMap_flat(minposxz)
+	local nvals_flower = minetest.get_perlin_map(np_flower, chulensxz):get2dMap_flat(minposxz)
+	
+	local nvals_fissure = minetest.get_perlin_map(np_fissure, chulensxyz):get3dMap_flat(minposxyz)
 	
 	local cross = math.abs(nvals_base[3160]) < TGRID and nvals_city[3160] > TCITY -- grid elements enabled per chunk
 	local nroad = math.abs(nvals_base[6359]) < TGRID and nvals_city[6359] > TCITY
@@ -178,21 +180,22 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local nixz = 1
 	local nixyz = 1
 	local stable = {}
-	for z = z0, z1 do
-		for x = x0, x1 do
-			local si = x - x0 + 1
+	for z = z0-1, z1 do
+		for x = x0-1, x1 do
+			local si = x - x0 + 2
 			stable[si] = 2
 		end
 		for y = y0, y1 do
-			local vi = area:index(x0, y, z)
-			local via = area:index(x0, y+1, z)
+			local vi = area:index(x0-1, y, z)
+			local via = area:index(x0-1, y+1, z)
 			local n_xprepath = false
 			local n_xpreroad = false
-			for x = x0, x1 do
+			for x = x0-1, x1 do
 				local nodid = data[vi]
-				local si = x - x0 + 1
+				local si = x - x0 + 2
 				local xr = x - x0
 				local zr = z - z0
+				local chunk = (x >= x0 and z >= z0)
 				
 				local sea = false
 				local flat = false
@@ -221,143 +224,139 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				
 				local n_path = nvals_path[nixz]
 				local n_abspath = math.abs(n_path)
-				local n_zprepath = nvals_path[(nixz - 80)]
+				local n_zprepath = nvals_path[(nixz - 81)]
 				local n_road = nvals_road[nixz]
 				local n_absroad = math.abs(n_road)
-				local n_zpreroad = nvals_road[(nixz - 80)]
+				local n_zpreroad = nvals_road[(nixz - 81)]
 				
 				local stodep = math.max(STODEP * (TERSCA - y) / TERSCA, 1)
 				
-				if y <= ysurf - stodep and (nofis or ((flat or sea) and y >= ysurf - 16)) then -- stone
-					if math.random() < ORECHA then
-						local osel = math.random(24)
-						if osel == 24 then
-							data[vi] = c_stodiam
-						elseif osel == 23 then
-							data[vi] = c_stomese
-						elseif osel == 22 then
-							data[vi] = c_stogold
-						elseif osel >= 19 then
-							data[vi] = c_stocopp
-						elseif osel >= 10 then
-							data[vi] = c_stoiron
+				if chunk then
+					if y <= ysurf - stodep and (nofis or ((flat or sea) and y >= ysurf - 16)) then -- stone
+						if math.random() < ORECHA then
+							local osel = math.random(24)
+							if osel == 24 then
+								data[vi] = c_stodiam
+							elseif osel == 23 then
+								data[vi] = c_stomese
+							elseif osel == 22 then
+								data[vi] = c_stogold
+							elseif osel >= 19 then
+								data[vi] = c_stocopp
+							elseif osel >= 10 then
+								data[vi] = c_stoiron
+							else
+								data[vi] = c_stocoal
+							end
 						else
-							data[vi] = c_stocoal
+							data[vi] = c_stone
 						end
-					else
-						data[vi] = c_stone
-					end
-					stable[si] = stable[si] + 1
-				elseif y == ysurf and y > YSAND then -- surface layer
-					if x > x0 and z > z0
-					and (((n_road >= 0 and n_xpreroad < 0) -- intercity road
-					or (n_road < 0 and n_xpreroad >= 0))
-					or ((n_road >= 0 and n_zpreroad < 0)
-					or (n_road < 0 and n_zpreroad >= 0))) then
-						data[vi] = c_roadwhite
-						for i = -3, 3 do
-						for k = -3, 3 do
-							if (math.abs(i)) ^ 2 + (math.abs(k)) ^ 2 <= 13 then
-								local vi = area:index(x+i, y, z+k)
-								local via = area:index(x+i, y+1, z+k)
-								local nodid = data[vi]
-								if nodid ~= c_roadwhite then
-									data[vi] = c_roadblack
+						stable[si] = stable[si] + 1
+					elseif y == ysurf and y > YSAND then -- surface layer
+						if ((n_road >= 0 and n_xpreroad < 0) or (n_road < 0 and n_xpreroad >= 0)) -- intercity road
+						or ((n_road >= 0 and n_zpreroad < 0) or (n_road < 0 and n_zpreroad >= 0)) then
+							data[vi] = c_roadwhite
+							for i = -3, 3 do
+							for k = -3, 3 do
+								if (math.abs(i)) ^ 2 + (math.abs(k)) ^ 2 <= 13 then
+									local vi = area:index(x+i, y, z+k)
+									local via = area:index(x+i, y+1, z+k)
+									local nodid = data[vi]
+									if nodid ~= c_roadwhite then
+										data[vi] = c_roadblack
+									end
+									data[via] = c_air
 								end
-								data[via] = c_air
+							end
+							end
+						elseif xr >= 36 and xr <= 42 and zr >= 36 and zr <= 42 -- city grid
+						and (nroad or eroad or sroad or wroad) and cross and nodid ~= c_roadblack then -- junction
+							if xr == 39 and zr == 39 then
+								data[vi] = c_roadwhite
+							else
+								data[vi] = c_roadblack
+							end
+						elseif xr >= 33 and xr <= 45 and zr >= 43 -- north road
+						and nroad and cross and nodid ~= c_roadblack then
+							if xr == 39 then
+								data[vi] = c_roadwhite
+							elseif xr >= 36 and xr <= 42 then
+								data[vi] = c_roadblack
+							else
+								data[vi] = c_dirt
+								data[via] = c_slab
+							end
+						elseif xr >= 43 and zr >= 33 and zr <= 45 -- east road
+						and eroad and cross and nodid ~= c_roadblack then
+							if zr == 39 then
+								data[vi] = c_roadwhite
+							elseif zr >= 36 and zr <= 42 then
+								data[vi] = c_roadblack
+							else
+								data[vi] = c_dirt
+								data[via] = c_slab
+							end
+						elseif xr >= 33 and xr <= 45 and zr <= 35 -- south road
+						and sroad and cross and nodid ~= c_roadblack then
+							if xr == 39 then
+								data[vi] = c_roadwhite
+							elseif xr >= 36 and xr <= 42 then
+								data[vi] = c_roadblack
+							else
+								data[vi] = c_dirt
+								data[via] = c_slab
+							end
+						elseif xr <= 35 and zr >= 33 and zr <= 45 -- west road
+						and wroad and cross and nodid ~= c_roadblack then
+							if zr == 39 then
+								data[vi] = c_roadwhite
+							elseif zr >= 36 and zr <= 42 then
+								data[vi] = c_roadblack
+							else
+								data[vi] = c_dirt
+								data[via] = c_slab
+							end
+						elseif xr >= 33 and xr <= 45 and zr >= 33 and zr <= 45 -- pavement in junction gaps
+						and (nroad or eroad or sroad or wroad) and cross and nodid ~= c_roadblack then
+							data[vi] = c_dirt
+							data[via] = c_slab
+						elseif n_absroad < 0.01 and city and nodid ~= c_roadblack then -- pavement of intercity road
+							data[vi] = c_dirt
+							data[via] = c_slab
+						elseif ((n_path >= 0 and n_xprepath < 0) or (n_path < 0 and n_xprepath >= 0)) -- path
+						or ((n_path >= 0 and n_zprepath < 0) or (n_path < 0 and n_zprepath >= 0)) then
+							for i = -1, 1 do
+							for k = -1, 1 do
+								local vi = area:index(x+i, y, z+k)
+								local nodid = data[vi]
+								if nodid ~= c_roadwhite and nodid ~= c_roadblack then
+									data[vi] = c_path
+								end
+							end
+							end
+						elseif stable[si] >= 2 and nodid ~= c_roadblack and nodid ~= c_path then -- dirt with grass
+							if math.random() < APPCHA * n_tree -- appletree
+							and n_abspath > 0.03 and n_absroad > 0.02 then
+								noisegrid_appletree(x, y+1, z, area, data)
+							else
+								data[vi] = c_grass
+								if math.random() < FLOCHA * n_flower and n_absroad > 0.015 then -- flowers
+									noisegrid_flower(data, via)
+								elseif math.random() < GRACHA * n_grass and n_absroad > 0.015 then -- grasses
+									noisegrid_grass(data, via)
+								end
 							end
 						end
-						end
-					elseif xr >= 36 and xr <= 42 and zr >= 36 and zr <= 42 -- city grid
-					and (nroad or eroad or sroad or wroad) and cross and nodid ~= c_roadblack then -- junction
-						if xr == 39 and zr == 39 then
-							data[vi] = c_roadwhite
-						else
-							data[vi] = c_roadblack
-						end
-					elseif xr >= 33 and xr <= 45 and zr >= 43 -- north road
-					and nroad and cross and nodid ~= c_roadblack then
-						if xr == 39 then
-							data[vi] = c_roadwhite
-						elseif xr >= 36 and xr <= 42 then
-							data[vi] = c_roadblack
-						else
-							data[vi] = c_dirt
-							data[via] = c_slab
-						end
-					elseif xr >= 43 and zr >= 33 and zr <= 45 -- east road
-					and eroad and cross and nodid ~= c_roadblack then
-						if zr == 39 then
-							data[vi] = c_roadwhite
-						elseif zr >= 36 and zr <= 42 then
-							data[vi] = c_roadblack
-						else
-							data[vi] = c_dirt
-							data[via] = c_slab
-						end
-					elseif xr >= 33 and xr <= 45 and zr <= 35 -- south road
-					and sroad and cross and nodid ~= c_roadblack then
-						if xr == 39 then
-							data[vi] = c_roadwhite
-						elseif xr >= 36 and xr <= 42 then
-							data[vi] = c_roadblack
-						else
-							data[vi] = c_dirt
-							data[via] = c_slab
-						end
-					elseif xr <= 35 and zr >= 33 and zr <= 45 -- west road
-					and wroad and cross and nodid ~= c_roadblack then
-						if zr == 39 then
-							data[vi] = c_roadwhite
-						elseif zr >= 36 and zr <= 42 then
-							data[vi] = c_roadblack
-						else
-							data[vi] = c_dirt
-							data[via] = c_slab
-						end
-					elseif xr >= 33 and xr <= 45 and zr >= 33 and zr <= 45 -- pavement in gaps
-					and cross and nodid ~= c_roadblack then
+					elseif y <= ysurf and y >= ysurf - 16 and y <= YSAND and sea and stable[si] >= 2 then -- sand
+						data[vi] = c_sand
+					elseif y < ysurf and y > ysurf - stodep and (nofis or flat) and stable[si] >= 2 then -- dirt
 						data[vi] = c_dirt
-						data[via] = c_slab
-					elseif n_absroad < 0.01 and city and nodid ~= c_roadblack then -- pavement around intercity road in city
-						data[vi] = c_dirt
-						data[via] = c_slab
-					elseif x > x0 and z > z0 -- path
-					and (((n_path >= 0 and n_xprepath < 0)
-					or (n_path < 0 and n_xprepath >= 0))
-					or ((n_path >= 0 and n_zprepath < 0)
-					or (n_path < 0 and n_zprepath >= 0))) then
-						for i = -1, 1 do
-						for k = -1, 1 do
-							local vi = area:index(x+i, y, z+k)
-							local nodid = data[vi]
-							if nodid ~= c_roadwhite and nodid ~= c_roadblack then
-								data[vi] = c_path
-							end
-						end
-						end
-					elseif stable[si] >= 2 and nodid ~= c_roadblack and nodid ~= c_path then -- dirt with grass
-						if math.random() < APPCHA * n_tree -- appletree
-						and n_abspath > 0.03 and n_absroad > 0.02 then
-							noisegrid_appletree(x, y+1, z, area, data)
-						else
-							data[vi] = c_grass
-							if math.random() < FLOCHA * n_flower and n_absroad > 0.015 then -- flowers
-								noisegrid_flower(data, via)
-							elseif math.random() < GRACHA * n_grass and n_absroad > 0.015 then -- grasses
-								noisegrid_grass(data, via)
-							end
-						end
+					elseif y <= 1 and y > ysurf then -- water
+						data[vi] = c_water
+						stable[si] = 0
+					else -- air
+						stable[si] = 0
 					end
-				elseif y <= ysurf and y >= ysurf - 16 and y <= YSAND and sea and stable[si] >= 2 then -- sand
-					data[vi] = c_sand
-				elseif y < ysurf and y > ysurf - stodep and (nofis or flat) and stable[si] >= 2 then -- dirt
-					data[vi] = c_dirt
-				elseif y <= 1 and y > ysurf then -- water
-					data[vi] = c_water
-					stable[si] = 0
-				else -- air
-					stable[si] = 0
 				end
 				n_xprepath = n_path
 				n_xpreroad = n_road
@@ -366,9 +365,9 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				vi = vi + 1
 				via = via + 1
 			end
-			nixz = nixz - 80
+			nixz = nixz - 81
 		end
-		nixz = nixz + 80
+		nixz = nixz + 81
 	end
 	
 	vm:set_data(data)
