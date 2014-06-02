@@ -1,11 +1,11 @@
--- noisegrid 0.3.5 by paramat
+-- noisegrid 0.3.6 by paramat
 -- For latest stable Minetest and back to 0.4.8
 -- Depends default
 -- License: code WTFPL
 
--- thicker tunnel roof
--- sandy concrete pavements, tunnels
--- many bugfixes
+-- fix grid element indexes again
+-- tune noise params
+-- 2 paths with 512n scale
 
 -- Parameters
 
@@ -42,7 +42,7 @@ local np_road = {
 	spread = {x=2048, y=2048, z=2048},
 	seed = -9111,
 	octaves = 4,
-	persist = 0.6
+	persist = 0.5
 }
 
 -- 2D noise for alt roads and tunnels
@@ -63,7 +63,7 @@ local np_city = {
 	scale = 1,
 	spread = {x=1024, y=1024, z=1024},
 	seed = 3166616,
-	octaves = 3,
+	octaves = 2,
 	persist = 0.5
 }
 
@@ -72,8 +72,17 @@ local np_city = {
 local np_path = {
 	offset = 0,
 	scale = 1,
-	spread = {x=256, y=256, z=256},
+	spread = {x=512, y=512, z=512},
 	seed = 7000023,
+	octaves = 4,
+	persist = 0.4
+}
+
+local np_path2 = {
+	offset = 0,
+	scale = 1,
+	spread = {x=512, y=512, z=512},
+	seed = -2315551,
 	octaves = 4,
 	persist = 0.4
 }
@@ -181,17 +190,18 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local nvals_alt = minetest.get_perlin_map(np_alt, chulensxz):get2dMap_flat(minposxz)
 	local nvals_city = minetest.get_perlin_map(np_city, chulensxz):get2dMap_flat(minposxz)
 	local nvals_path = minetest.get_perlin_map(np_path, chulensxz):get2dMap_flat(minposxz)
+	local nvals_path2 = minetest.get_perlin_map(np_path2, chulensxz):get2dMap_flat(minposxz)
 	local nvals_tree = minetest.get_perlin_map(np_tree, chulensxz):get2dMap_flat(minposxz)
 	local nvals_grass = minetest.get_perlin_map(np_grass, chulensxz):get2dMap_flat(minposxz)
 	local nvals_flower = minetest.get_perlin_map(np_flower, chulensxz):get2dMap_flat(minposxz)
 	
 	local nvals_fissure = minetest.get_perlin_map(np_fissure, chulensxyz):get3dMap_flat(minposxyz)
 	
-	local cross = math.abs(nvals_base[3199]) < TGRID and nvals_city[3160] > TCITY -- grid elements enabled per chunk
-	local nroad = math.abs(nvals_base[6520]) < TGRID and nvals_city[6359] > TCITY
-	local eroad = math.abs(nvals_base[3240]) < TGRID and nvals_city[3200] > TCITY
-	local sroad = math.abs(nvals_base[121]) < TGRID and nvals_city[39] > TCITY
-	local wroad = math.abs(nvals_base[3161]) < TGRID and nvals_city[3121] > TCITY
+	local cross = math.abs(nvals_base[3281]) < TGRID and nvals_city[3281] > TCITY -- grid elements enabled per chunk
+	local nroad = math.abs(nvals_base[6521]) < TGRID and nvals_city[6521] > TCITY
+	local eroad = math.abs(nvals_base[3321]) < TGRID and nvals_city[3321] > TCITY
+	local sroad = math.abs(nvals_base[122]) < TGRID and nvals_city[122] > TCITY
+	local wroad = math.abs(nvals_base[3242]) < TGRID and nvals_city[3242] > TCITY
 	
 	local nixz = 1
 	local nixyz = 1
@@ -205,6 +215,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			local vi = area:index(x0-1, y, z)
 			local via = area:index(x0-1, y+1, z)
 			local n_xprepath = false
+			local n_xprepath2 = false
 			local n_xpreroad = false
 			local n_xprealt = false
 			for x = x0-1, x1 do
@@ -242,6 +253,10 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				local n_path = nvals_path[nixz]
 				local n_abspath = math.abs(n_path)
 				local n_zprepath = nvals_path[(nixz - 81)]
+				
+				local n_path2 = nvals_path2[nixz]
+				local n_abspath2 = math.abs(n_path2)
+				local n_zprepath2 = nvals_path2[(nixz - 81)]
 				
 				local n_road = nvals_road[nixz]
 				local n_absroad = math.abs(n_road)
@@ -386,9 +401,21 @@ minetest.register_on_generated(function(minp, maxp, seed)
 								end
 							end
 							end
+						elseif ((n_path2 >= 0 and n_xprepath2 < 0) or (n_path2 < 0 and n_xprepath2 >= 0)) -- path 2
+						or ((n_path2 >= 0 and n_zprepath2 < 0) or (n_path2 < 0 and n_zprepath2 >= 0)) then
+							for i = -1, 1 do
+							for k = -1, 1 do
+								local vi = area:index(x+i, y, z+k)
+								local nodid = data[vi]
+								if nodid ~= c_roadwhite and nodid ~= c_roadblack then
+									data[vi] = c_path
+								end
+							end
+							end
 						elseif stable[si] >= 2 and nodid ~= c_roadblack and nodid ~= c_path then -- dirt with grass
 							if math.random() < APPCHA * n_tree -- appletree
-							and n_abspath > 0.03 and n_absroad > 0.02 and (n_absalt > 0.04 or y > YFLAT) then
+							and n_abspath > 0.015 and n_abspath2 > 0.015 and n_absroad > 0.02
+							and (n_absalt > 0.04 or y > YFLAT) then
 								noisegrid_appletree(x, y+1, z, area, data)
 							else
 								data[vi] = c_grass
@@ -414,6 +441,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					end
 				end
 				n_xprepath = n_path
+				n_xprepath2 = n_path2
 				n_xpreroad = n_road
 				n_xprealt = n_alt
 				nixz = nixz + 1
