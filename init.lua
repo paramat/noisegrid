@@ -1,11 +1,9 @@
--- noisegrid 0.3.6 by paramat
+-- noisegrid 0.3.7 by paramat
 -- For latest stable Minetest and back to 0.4.8
 -- Depends default
 -- License: code WTFPL
 
--- fix grid element indexes again
--- tune noise params
--- 2 paths with 512n scale
+-- wood bridges
 
 -- Parameters
 
@@ -172,6 +170,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	
 	local c_water = minetest.get_content_id("default:water_source")
 	local c_sand = minetest.get_content_id("default:sand")
+	local c_wood = minetest.get_content_id("default:wood")
 	local c_stodiam = minetest.get_content_id("default:stone_with_diamond")
 	local c_stomese = minetest.get_content_id("default:stone_with_mese")
 	local c_stogold = minetest.get_content_id("default:stone_with_gold")
@@ -241,7 +240,9 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				end
 				
 				local n_fissure = nvals_fissure[nixyz]
-				local nofis = math.abs(n_fissure) > TFIS
+				local n_absfissure = math.abs(n_fissure)
+				local nofis = n_absfissure > TFIS
+				local wood = n_absfissure < TFIS * 2 and not flat
 				
 				local n_city = nvals_city[nixz]
 				local city = n_city > TCITY
@@ -392,23 +393,43 @@ minetest.register_on_generated(function(minp, maxp, seed)
 							data[via] = c_slab
 						elseif ((n_path >= 0 and n_xprepath < 0) or (n_path < 0 and n_xprepath >= 0)) -- path
 						or ((n_path >= 0 and n_zprepath < 0) or (n_path < 0 and n_zprepath >= 0)) then
+							if wood then
+								local viu = area:index(x, y-1, z)
+								local viuu = area:index(x, y-2, z)
+								data[viu] = c_wood
+								data[viuu] = c_wood
+							end
 							for i = -1, 1 do
 							for k = -1, 1 do
 								local vi = area:index(x+i, y, z+k)
 								local nodid = data[vi]
 								if nodid ~= c_roadwhite and nodid ~= c_roadblack then
-									data[vi] = c_path
+									if wood then
+										data[vi] = c_wood
+									else
+										data[vi] = c_path
+									end
 								end
 							end
 							end
 						elseif ((n_path2 >= 0 and n_xprepath2 < 0) or (n_path2 < 0 and n_xprepath2 >= 0)) -- path 2
 						or ((n_path2 >= 0 and n_zprepath2 < 0) or (n_path2 < 0 and n_zprepath2 >= 0)) then
+							if wood then
+								local viu = area:index(x, y-1, z)
+								local viuu = area:index(x, y-2, z)
+								data[viu] = c_wood
+								data[viuu] = c_wood
+							end
 							for i = -1, 1 do
 							for k = -1, 1 do
 								local vi = area:index(x+i, y, z+k)
 								local nodid = data[vi]
 								if nodid ~= c_roadwhite and nodid ~= c_roadblack then
-									data[vi] = c_path
+									if wood then
+										data[vi] = c_wood
+									else
+										data[vi] = c_path
+									end
 								end
 							end
 							end
