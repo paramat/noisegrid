@@ -2,19 +2,20 @@ function noisegrid_appletree(x, y, z, area, data)
 	local c_tree = minetest.get_content_id("default:tree")
 	local c_apple = minetest.get_content_id("default:apple")
 	local c_appleaf = minetest.get_content_id("noisegrid:appleleaf")
-	for j = -2, 4 do
-		if j == 3 or j == 4 then
+	local top = 3 + math.random(2)
+	for j = -2, top do
+		if j == top - 1 or j == top then
 			for i = -2, 2 do
 			for k = -2, 2 do
 				local vi = area:index(x + i, y + j, z + k)
-				if math.random(50) == 2 then
+				if j == top - 1 and math.random() < 0.04 then
 					data[vi] = c_apple
 				elseif math.random(5) ~= 2 then
 					data[vi] = c_appleaf
 				end
 			end
 			end
-		elseif j == 2 then
+		elseif j == top - 2 then
 			for i = -1, 1 do
 			for k = -1, 1 do
 				if math.abs(i) + math.abs(k) == 2 then
@@ -87,7 +88,7 @@ minetest.register_abm({
 		local z = pos.z
 		local vm = minetest.get_voxel_manip()
 		local pos1 = {x=x-2, y=y-2, z=z-2}
-		local pos2 = {x=x+2, y=y+4, z=z+2}
+		local pos2 = {x=x+2, y=y+5, z=z+2}
 		local emin, emax = vm:read_from_map(pos1, pos2)
 		local area = VoxelArea:new({MinEdge=emin, MaxEdge=emax})
 		local data = vm:get_data()
@@ -105,6 +106,16 @@ minetest.register_abm({
 	action = function(pos, node)
 		minetest.add_node(pos, {name="noisegrid:lighton"})
 		nodeupdate(pos)
+	end,
+})
+
+minetest.register_abm({
+	nodenames = {"noisegrid:luxoff"},
+	interval = 7,
+	chance = 1,
+	action = function(pos, node)
+		minetest.remove_node(pos)
+		minetest.place_node(pos, {name="noisegrid:luxore"})
 	end,
 })
 

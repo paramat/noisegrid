@@ -1,9 +1,11 @@
--- noisegrid 0.3.7 by paramat
+-- noisegrid 0.3.8 by paramat
 -- For latest stable Minetest and back to 0.4.8
 -- Depends default
 -- License: code WTFPL
 
--- wood bridges
+-- vary tree height, lower apples
+-- luxore craftable to lights
+-- 2 tunnel network plus fissures
 
 -- Parameters
 
@@ -11,11 +13,12 @@ local YFLAT = 7 -- Flat area elevation y
 local YSAND = 4 -- Top of beach y
 local TERSCA = 192 -- Vertical terrain scale in nodes
 local STODEP = 5 -- Stone depth below surface in nodes at sea level
-local TGRID = 0.18 -- Grid area width
+local TGRID = 0.18 -- City grid area width
 local TFLAT = 0.2 -- Flat coastal area width
 local TCITY = 0.3 -- City size. 0.3 = 1/3 of coastal land area, 0 = 1/2 of coastal land area
 
 local TFIS = 0.02 -- Fissure width
+local LUXCHA = 1 / 7 ^ 3 -- Luxore chance per stone node.
 local ORECHA = 1 / 5 ^ 3 -- Ore chance per stone node. 1 / n ^ 3 where n = average distance between ores
 local APPCHA = 1 / 4 ^ 2 -- Appletree maximum chance per grass node. 1 / n ^ 2 where n = minimum average distance between flora
 local FLOCHA = 1 / 13 ^ 2 -- Flowers maximum chance per grass node
@@ -38,7 +41,7 @@ local np_road = {
 	offset = 0,
 	scale = 1,
 	spread = {x=2048, y=2048, z=2048},
-	seed = -9111,
+	seed = -9111, -- same seed as above for similar structre but smoother
 	octaves = 4,
 	persist = 0.5
 }
@@ -114,9 +117,10 @@ local np_flower = {
 	scale = 1,
 	spread = {x=256, y=256, z=256},
 	seed = -70008,
-	octaves = 2,
+	octaves = 1,
 	persist = 0.5
 }
+
 
 -- 3D noise for fissures
 
@@ -126,6 +130,39 @@ local np_fissure = {
 	spread = {x=192, y=192, z=192},
 	seed = 2001,
 	octaves = 4,
+	persist = 0.5
+}
+
+-- 3D noise for web a
+
+local np_weba = {
+	offset = 0,
+	scale = 1,
+	spread = {x=192, y=192, z=192},
+	seed = 5900033,
+	octaves = 3,
+	persist = 0.5
+}
+
+-- 3D noise for web b
+
+local np_webb = {
+	offset = 0,
+	scale = 1,
+	spread = {x=191, y=191, z=191},
+	seed = 33,
+	octaves = 3,
+	persist = 0.5
+}
+
+-- 3D noise for web c
+
+local np_webc = {
+	offset = 0,
+	scale = 1,
+	spread = {x=190, y=190, z=190},
+	seed = -18000001,
+	octaves = 3,
 	persist = 0.5
 }
 
@@ -165,8 +202,9 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local c_roadwhite = minetest.get_content_id("noisegrid:roadwhite")
 	local c_slab = minetest.get_content_id("noisegrid:slab")
 	local c_path = minetest.get_content_id("noisegrid:path")
-	local c_light = minetest.get_content_id("noisegrid:lightoff")
 	local c_concrete = minetest.get_content_id("noisegrid:concrete")
+	local c_light = minetest.get_content_id("noisegrid:lightoff")
+	local c_luxore = minetest.get_content_id("noisegrid:luxoff")
 	
 	local c_water = minetest.get_content_id("default:water_source")
 	local c_sand = minetest.get_content_id("default:sand")
@@ -195,6 +233,9 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local nvals_flower = minetest.get_perlin_map(np_flower, chulensxz):get2dMap_flat(minposxz)
 	
 	local nvals_fissure = minetest.get_perlin_map(np_fissure, chulensxyz):get3dMap_flat(minposxyz)
+	local nvals_weba = minetest.get_perlin_map(np_weba, chulensxyz):get3dMap_flat(minposxyz)
+	local nvals_webb = minetest.get_perlin_map(np_webb, chulensxyz):get3dMap_flat(minposxyz)
+	local nvals_webc = minetest.get_perlin_map(np_webc, chulensxyz):get3dMap_flat(minposxyz)
 	
 	local cross = math.abs(nvals_base[3281]) < TGRID and nvals_city[3281] > TCITY -- grid elements enabled per chunk
 	local nroad = math.abs(nvals_base[6521]) < TGRID and nvals_city[6521] > TCITY
@@ -207,7 +248,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local stable = {}
 	for z = z0-1, z1 do
 		for x = x0-1, x1 do
-			local si = x - x0 + 2
+			local si = x - x0 + 2 -- +2 because overgeneration
 			stable[si] = 2
 		end
 		for y = y0, y1 do
@@ -219,9 +260,9 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			local n_xprealt = false
 			for x = x0-1, x1 do
 				local nodid = data[vi]
-				local si = x - x0 + 2
 				local xr = x - x0
 				local zr = z - z0
+				local si = xr + 2
 				local chunk = (x >= x0 and z >= z0)
 				
 				local sea = false
@@ -239,9 +280,13 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					flat = true
 				end
 				
+				local weba = math.abs(nvals_weba[nixyz]) < TFIS
+				local webb = math.abs(nvals_webb[nixyz]) < TFIS
+				local webc = math.abs(nvals_webc[nixyz]) < TFIS
+
 				local n_fissure = nvals_fissure[nixyz]
 				local n_absfissure = math.abs(n_fissure)
-				local nofis = n_absfissure > TFIS
+				local nofis = n_absfissure > TFIS and not (weba and webb) and not (weba and webc)
 				local wood = n_absfissure < TFIS * 2 and not flat
 				
 				local n_city = nvals_city[nixz]
@@ -285,7 +330,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 								if nodid ~= c_roadwhite then
 									data[vi] = c_roadblack
 								end
-								data[via] = c_air
+								data[via] = c_air -- air above to remove pavements
 							end
 						end
 						end
@@ -299,9 +344,11 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					and n_absalt < 0.035 and n_base > TFLAT and nodid ~= c_roadblack then
 						data[vi] = c_concrete
 						stable[si] = stable[si] + 1
-					elseif y <= ysurf - stodep and (nofis or ((flat or sea) -- stone
-					and y >= ysurf - 16)) and nodid ~= c_roadblack then
-						if math.random() < ORECHA then
+					elseif y <= ysurf - stodep and nodid ~= c_roadblack
+					and (nofis or ((flat or sea) and y >= ysurf - 16)) then
+						if math.random() < LUXCHA and stable[si] >= 1 and y > y0 then -- only stable luxore to avoid droop
+							data[vi] = c_luxore
+						elseif math.random() < ORECHA then -- ores
 							local osel = math.random(24)
 							if osel == 24 then
 								data[vi] = c_stodiam
@@ -317,7 +364,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 								data[vi] = c_stocoal
 							end
 						else
-							data[vi] = c_stone
+							data[vi] = c_stone -- stone
 						end
 						stable[si] = stable[si] + 1
 					elseif y == ysurf and y > YSAND then -- surface layer
@@ -433,7 +480,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 								end
 							end
 							end
-						elseif stable[si] >= 2 and nodid ~= c_roadblack and nodid ~= c_path then -- dirt with grass
+						elseif stable[si] >= 2 and nodid ~= c_roadblack and nodid ~= c_path then -- stable dirt with grass
 							if math.random() < APPCHA * n_tree -- appletree
 							and n_abspath > 0.015 and n_abspath2 > 0.015 and n_absroad > 0.02
 							and (n_absalt > 0.04 or y > YFLAT) then
@@ -449,10 +496,10 @@ minetest.register_on_generated(function(minp, maxp, seed)
 								end
 							end
 						end
-					elseif y <= ysurf and y >= ysurf - 16 and y <= YSAND and sea and stable[si] >= 2 then -- sand
+					elseif y <= ysurf and y >= ysurf - 16 and y <= YSAND and sea and stable[si] >= 2 then -- stable sand
 						data[vi] = c_sand
 					elseif y < ysurf and y > ysurf - stodep and (nofis or flat) and stable[si] >= 2
-					and nodid ~= c_roadblack then -- dirt
+					and nodid ~= c_roadblack then -- stable dirt
 						data[vi] = c_dirt
 					elseif y <= 1 and y > ysurf then -- water
 						data[vi] = c_water
