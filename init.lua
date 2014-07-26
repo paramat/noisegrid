@@ -1,11 +1,12 @@
--- noisegrid 0.3.8 by paramat
+-- noisegrid 0.3.9 by paramat
 -- For latest stable Minetest and back to 0.4.8
 -- Depends default
 -- License: code WTFPL
 
--- vary tree height, lower apples
--- luxore craftable to lights
--- 2 tunnel network plus fissures
+-- fix intercity road, 5 octaves
+-- no stability check for sand as it needs to block fissures
+-- no 'nofis' check for dirt to stack dirt vertically on fissure edges
+-- use overlen 
 
 -- Parameters
 
@@ -15,10 +16,11 @@ local TERSCA = 192 -- Vertical terrain scale in nodes
 local STODEP = 5 -- Stone depth below surface in nodes at sea level
 local TGRID = 0.18 -- City grid area width
 local TFLAT = 0.2 -- Flat coastal area width
-local TCITY = 0.3 -- City size. 0.3 = 1/3 of coastal land area, 0 = 1/2 of coastal land area
+local TCITY = 0 -- City size. 0.3 = 1/3 of coastal land area, 0 = 1/2 of coastal land area
 
-local TFIS = 0.02 -- Fissure width
-local LUXCHA = 1 / 7 ^ 3 -- Luxore chance per stone node.
+local TFIS = 0.01 -- Fissure width
+local TTUN = 0.02 -- Tunnel width
+local LUXCHA = 1 / 9 ^ 3 -- Luxore chance per stone node.
 local ORECHA = 1 / 5 ^ 3 -- Ore chance per stone node. 1 / n ^ 3 where n = average distance between ores
 local APPCHA = 1 / 4 ^ 2 -- Appletree maximum chance per grass node. 1 / n ^ 2 where n = minimum average distance between flora
 local FLOCHA = 1 / 13 ^ 2 -- Flowers maximum chance per grass node
@@ -42,7 +44,7 @@ local np_road = {
 	scale = 1,
 	spread = {x=2048, y=2048, z=2048},
 	seed = -9111, -- same seed as above for similar structre but smoother
-	octaves = 4,
+	octaves = 5,
 	persist = 0.5
 }
 
@@ -127,7 +129,7 @@ local np_flower = {
 local np_fissure = {
 	offset = 0,
 	scale = 1,
-	spread = {x=192, y=192, z=192},
+	spread = {x=384, y=384, z=384},
 	seed = 2001,
 	octaves = 4,
 	persist = 0.5
@@ -217,9 +219,10 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local c_stocoal = minetest.get_content_id("default:stone_with_coal")
 	
 	local sidelen = x1 - x0 + 1
-	local chulensxyz = {x=sidelen+1, y=sidelen, z=sidelen+1}
+	local overlen = sidelen + 1
+	local chulensxyz = {x=overlen, y=sidelen, z=overlen}
 	local minposxyz = {x=x0-1, y=y0, z=z0-1}
-	local chulensxz = {x=sidelen+1, y=sidelen+1, z=sidelen} -- different because here x=x, y=z
+	local chulensxz = {x=overlen, y=overlen, z=sidelen} -- different because here x=x, y=z
 	local minposxz = {x=x0-1, y=z0-1}
 	
 	local nvals_base = minetest.get_perlin_map(np_base, chulensxz):get2dMap_flat(minposxz)
@@ -238,7 +241,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local nvals_webc = minetest.get_perlin_map(np_webc, chulensxyz):get3dMap_flat(minposxyz)
 	
 	local cross = math.abs(nvals_base[3281]) < TGRID and nvals_city[3281] > TCITY -- grid elements enabled per chunk
-	local nroad = math.abs(nvals_base[6521]) < TGRID and nvals_city[6521] > TCITY
+	local nroad = math.abs(nvals_base[6521]) < TGRID and nvals_city[6521] > TCITY -- dependant on chunksize = 5
 	local eroad = math.abs(nvals_base[3321]) < TGRID and nvals_city[3321] > TCITY
 	local sroad = math.abs(nvals_base[122]) < TGRID and nvals_city[122] > TCITY
 	local wroad = math.abs(nvals_base[3242]) < TGRID and nvals_city[3242] > TCITY
@@ -280,9 +283,9 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					flat = true
 				end
 				
-				local weba = math.abs(nvals_weba[nixyz]) < TFIS
-				local webb = math.abs(nvals_webb[nixyz]) < TFIS
-				local webc = math.abs(nvals_webc[nixyz]) < TFIS
+				local weba = math.abs(nvals_weba[nixyz]) < TTUN
+				local webb = math.abs(nvals_webb[nixyz]) < TTUN
+				local webc = math.abs(nvals_webc[nixyz]) < TTUN
 
 				local n_fissure = nvals_fissure[nixyz]
 				local n_absfissure = math.abs(n_fissure)
@@ -298,19 +301,19 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				
 				local n_path = nvals_path[nixz]
 				local n_abspath = math.abs(n_path)
-				local n_zprepath = nvals_path[(nixz - 81)]
+				local n_zprepath = nvals_path[(nixz - overlen)]
 				
 				local n_path2 = nvals_path2[nixz]
 				local n_abspath2 = math.abs(n_path2)
-				local n_zprepath2 = nvals_path2[(nixz - 81)]
+				local n_zprepath2 = nvals_path2[(nixz - overlen)]
 				
 				local n_road = nvals_road[nixz]
 				local n_absroad = math.abs(n_road)
-				local n_zpreroad = nvals_road[(nixz - 81)]
+				local n_zpreroad = nvals_road[(nixz - overlen)]
 				
 				local n_alt = nvals_alt[nixz]
 				local n_absalt = math.abs(n_alt)
-				local n_zprealt = nvals_alt[(nixz - 81)]
+				local n_zprealt = nvals_alt[(nixz - overlen)]
 				
 				local stodep = math.max(STODEP * (TERSCA - y) / TERSCA, 1)
 				
@@ -435,9 +438,9 @@ minetest.register_on_generated(function(minp, maxp, seed)
 						and (nroad or eroad or sroad or wroad) and cross and nodid ~= c_roadblack then
 							data[vi] = c_dirt
 							data[via] = c_slab
-						elseif (n_absroad < 0.01 or n_absalt < 0.02) and flat and city and nodid ~= c_roadblack then
-							data[vi] = c_dirt -- pavement of intercity road and tunnel road in city
-							data[via] = c_slab
+						--elseif (n_absroad < 0.01 or n_absalt < 0.02) and flat and city and nodid ~= c_roadblack then
+							--data[vi] = c_dirt -- pavement of intercity road and tunnel road in city
+							--data[via] = c_slab
 						elseif ((n_path >= 0 and n_xprepath < 0) or (n_path < 0 and n_xprepath >= 0)) -- path
 						or ((n_path >= 0 and n_zprepath < 0) or (n_path < 0 and n_zprepath >= 0)) then
 							if wood then
@@ -496,9 +499,9 @@ minetest.register_on_generated(function(minp, maxp, seed)
 								end
 							end
 						end
-					elseif y <= ysurf and y >= ysurf - 16 and y <= YSAND and sea and stable[si] >= 2 then -- stable sand
+					elseif y <= ysurf and y >= ysurf - 16 and y <= YSAND then -- sand
 						data[vi] = c_sand
-					elseif y < ysurf and y > ysurf - stodep and (nofis or flat) and stable[si] >= 2
+					elseif y < ysurf and y > ysurf - stodep and stable[si] >= 2
 					and nodid ~= c_roadblack then -- stable dirt
 						data[vi] = c_dirt
 					elseif y <= 1 and y > ysurf then -- water
@@ -517,9 +520,9 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				vi = vi + 1
 				via = via + 1
 			end
-			nixz = nixz - 81
+			nixz = nixz - overlen
 		end
-		nixz = nixz + 81
+		nixz = nixz + overlen
 	end
 	
 	vm:set_data(data)

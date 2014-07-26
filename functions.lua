@@ -99,6 +99,8 @@ minetest.register_abm({
 	end,
 })
 
+-- Spread tunnel lights
+
 minetest.register_abm({
 	nodenames = {"noisegrid:lightoff"},
 	interval = 5,
@@ -108,6 +110,8 @@ minetest.register_abm({
 		nodeupdate(pos)
 	end,
 })
+
+-- Spread lux ore light
 
 minetest.register_abm({
 	nodenames = {"noisegrid:luxoff"},
