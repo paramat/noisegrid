@@ -31,6 +31,7 @@ function noisegrid_appletree(x, y, z, area, data)
 	end
 end
 
+
 function noisegrid_grass(data, vi)
 	local c_grass1 = minetest.get_content_id("default:grass_1")
 	local c_grass2 = minetest.get_content_id("default:grass_2")
@@ -50,6 +51,7 @@ function noisegrid_grass(data, vi)
 		data[vi] = c_grass5
 	end
 end
+
 
 function noisegrid_flower(data, vi)
 	local c_danwhi = minetest.get_content_id("flowers:dandelion_white")
@@ -74,14 +76,13 @@ function noisegrid_flower(data, vi)
 	end
 end
 
--- ABM
 
--- Appletree sapling
+-- Appletree sapling ABM
 
 minetest.register_abm({
 	nodenames = {"noisegrid:appling"},
 	interval = 31,
-	chance = 5,
+	chance = 7,
 	action = function(pos, node)
 		local x = pos.x
 		local y = pos.y
@@ -92,42 +93,15 @@ minetest.register_abm({
 		local emin, emax = vm:read_from_map(pos1, pos2)
 		local area = VoxelArea:new({MinEdge=emin, MaxEdge=emax})
 		local data = vm:get_data()
+
 		noisegrid_appletree(x, y, z, area, data)
+
 		vm:set_data(data)
 		vm:write_to_map()
 		vm:update_map()
 	end,
 })
 
--- Spread tunnel lights
-
-minetest.register_abm({
-	nodenames = {"noisegrid:lightoff"},
-	interval = 5,
-	chance = 8,
-	action = function(pos, node)
-		minetest.add_node(pos, {name="noisegrid:lighton"})
-		nodeupdate(pos)
-	end,
-})
-
--- Spread lux ore light
-
-minetest.register_abm({
-	nodenames = {"noisegrid:luxoff"},
-	interval = 7,
-	chance = 1,
-	action = function(pos, node)
-		minetest.remove_node(pos)
-		minetest.place_node(pos, {name="noisegrid:luxore"})
-	end,
-})
-
--- Set mapgen parameters
-
-minetest.register_on_mapgen_init(function(mgparams)
-	minetest.set_mapgen_params({mgname="singlenode"})
-end)
 
 -- Spawn player
 
@@ -210,3 +184,4 @@ minetest.register_on_respawnplayer(function(player)
 	spawnplayer(player)
 	return true
 end)
+

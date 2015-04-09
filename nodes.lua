@@ -111,17 +111,10 @@ minetest.register_node("noisegrid:appling", {
 	sounds = default.node_sound_leaves_defaults(),
 })
 
-minetest.register_node("noisegrid:lightoff", {
+minetest.register_node("noisegrid:light", {
 	description = "Light",
 	tiles = {"noisegrid_light.png"},
-	light_source = 14,
-	groups = {cracky=3,oddly_breakable_by_hand=3},
-	sounds = default.node_sound_glass_defaults(),
-})
-
-minetest.register_node("noisegrid:lighton", {
-	description = "Light",
-	tiles = {"noisegrid_light.png"},
+	paramtype = "light",
 	light_source = 14,
 	groups = {cracky=3,oddly_breakable_by_hand=3},
 	sounds = default.node_sound_glass_defaults(),
@@ -135,17 +128,10 @@ minetest.register_node("noisegrid:concrete", {
 	sounds = default.node_sound_stone_defaults(),
 })
 
-minetest.register_node("noisegrid:luxoff", {
-	description = "Dark Lux Ore",
-	tiles = {"noisegrid_luxore.png"},
-	light_source = 14,
-	groups = {immortal=1},
-	sounds = default.node_sound_glass_defaults(),
-})
-
 minetest.register_node("noisegrid:luxore", {
 	description = "Lux Ore",
 	tiles = {"noisegrid_luxore.png"},
+	paramtype = "light",
 	light_source = 14,
 	groups = {cracky=3},
 	sounds = default.node_sound_glass_defaults(),
@@ -154,10 +140,11 @@ minetest.register_node("noisegrid:luxore", {
 -- Crafting.
 
 minetest.register_craft({
-    output = "noisegrid:lighton 8",
+    output = "noisegrid:light 8",
     recipe = {
         {"default:glass", "default:glass", "default:glass"},
         {"default:glass", "noisegrid:luxore", "default:glass"},
         {"default:glass", "default:glass", "default:glass"},
     },
 })
+
