@@ -88,10 +88,10 @@ minetest.register_abm({
 		local y = pos.y
 		local z = pos.z
 		local vm = minetest.get_voxel_manip()
-		local pos1 = {x=x-2, y=y-2, z=z-2}
-		local pos2 = {x=x+2, y=y+5, z=z+2}
+		local pos1 = {x = x - 2, y = y - 2, z = z - 2}
+		local pos2 = {x = x + 2, y = y + 5, z = z + 2}
 		local emin, emax = vm:read_from_map(pos1, pos2)
-		local area = VoxelArea:new({MinEdge=emin, MaxEdge=emax})
+		local area = VoxelArea:new({MinEdge = emin, MaxEdge = emax})
 		local data = vm:get_data()
 
 		noisegrid_appletree(x, y, z, area, data)
@@ -101,87 +101,3 @@ minetest.register_abm({
 		vm:update_map()
 	end,
 })
-
-
--- Spawn player
-
-function spawnplayer(player)
-	-- Parameters
-	local PSCA = 16 -- Player scatter. Maximum distance in chunks (80 nodes) of player spawn from (0, 0, 0)
-	local YFLAT = 7 -- Flat area elevation
-	local TERSCA = 192 -- Vertical terrain scale
-	local TFLAT = 0.2 -- Flat area width
-	
-	local xsp
-	local ysp
-	local zsp
-	local np_base = {
-		offset = 0,
-		scale = 1,
-		spread = {x=2048, y=2048, z=2048},
-		seed = -9111,
-		octaves = 6,
-		persist = 0.6
-	}
-	for chunk = 1, 128 do
-		print ("[noisegrid] searching for spawn "..chunk)
-		local x0 = 80 * math.random(-PSCA, PSCA) - 32
-		local z0 = 80 * math.random(-PSCA, PSCA) - 32
-		local y0 = -32
-		local x1 = x0 + 79
-		local z1 = z0 + 79
-		local y1 = 47
-
-		local sidelen = 80
-		local chulens = {x=sidelen, y=sidelen, z=sidelen}
-		local minposxz = {x=x0, y=z0}
-
-		local nvals_base = minetest.get_perlin_map(np_base, chulens):get2dMap_flat(minposxz)
-
-		local nixz = 1
-		for z = z0, z1 do
-			for x = x0, x1 do
-				local ysurf
-				local n_base = nvals_base[nixz]
-				local n_absbase = math.abs(n_base)
-				if n_base > TFLAT then
-					ysurf = YFLAT + math.floor((n_base - TFLAT) * TERSCA)
-				elseif n_base < -TFLAT then
-					ysurf = YFLAT - math.floor((-TFLAT - n_base) * TERSCA)
-				else
-					ysurf = YFLAT
-				end
-				if ysurf >= 1 then
-					ysp = ysurf + 1
-					xsp = x
-					zsp = z
-					break
-				end
-				nixz = nixz + 1
-			end
-			if ysp then
-				break
-			end
-		end
-		if ysp then
-			break
-		end
-	end
-	if ysp then
-		print ("[noisegrid] spawn player ("..xsp.." "..ysp.." "..zsp..")")
-		player:setpos({x=xsp, y=ysp, z=zsp})
-	else	
-		print ("[noisegrid] no suitable spawn found")
-		player:setpos({x=0, y=2, z=0})
-	end
-end
-
-minetest.register_on_newplayer(function(player)
-	spawnplayer(player)
-end)
-
-minetest.register_on_respawnplayer(function(player)
-	spawnplayer(player)
-	return true
-end)
-

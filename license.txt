@@ -17,7 +17,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 License of media (textures)
---------------------------------------
+---------------------------
 Copyright (C) 2014-2015 paramat
 
 Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0)
